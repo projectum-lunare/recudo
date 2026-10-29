@@ -1,0 +1,13 @@
+-- solo - Physical I/O, System Foundations & Hardware Abstractions
+-- Platform: AmigaOS Classic (m68k)
+
+platform("amiga")
+    set_os("amigaos")
+    set_hosts("linux", "windows", "macosx", "bsd")
+    set_archs("m68k")
+
+    set_formats("static", "lib$(name).a")
+    set_formats("object", "$(name).o")
+    set_formats("binary", "$(name)")
+
+    set_toolchains("amigaos")

@@ -1,0 +1,12 @@
+.xmake/
+build/
+*.o
+*.obj
+*.a
+*.lib
+*.so
+*.dll
+*.dylib
+*.exe
+.DS_Store
+.vscode/
