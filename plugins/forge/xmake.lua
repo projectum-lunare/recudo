@@ -3,10 +3,13 @@
 
 local menu_conf = {
     usage = "xmake forge [target] [options]",
-    description = "Projectum Lunare Forge - Cross-Compilation & Toolchain Engine",
+    description = "Projectum Lunare Forge - Cross-Compilation, Toolchain & Lua Engine",
     options = {
-        {'c', "clean",   "k", nil, "Clean reconfigure before build."},
-        {nil, "target",  "v", "list", "Target platform: amiga, atari, kolibri, dos, os2, posix, all, list"}
+        {'c', "clean",       "k", nil, "Clean reconfigure before build."},
+        {nil, "export-env",  "k", nil, "Export LUA_PATH and LUA_CPATH into .env file."},
+        {nil, "json",        "k", nil, "Output environment paths in JSON format."},
+        {nil, "fish",        "k", nil, "Output environment paths for fish shell."},
+        {nil, "target",      "v", "list", "Target: amiga, atari, kolibri, dos, os2, posix, all, list, env, run"}
     }
 }
 

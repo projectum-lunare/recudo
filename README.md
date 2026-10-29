@@ -18,6 +18,7 @@ Instead of reinventing low-level DAG build graphs from scratch, Forge integrates
 - **Automatic Default Architectures:** Automatic mappings (`amiga|m68k`, `atari|m68k`, `kolibri|i386`, `dos|i386`, `os2|i386`, `wince|arm`).
 - **Native Compiler Rules:** Direct execution of non-standard toolchains (`Open Watcom` v2 for DOS/OS2 via `owcc`/`wlib`, `Microsoft eVC 3.0` via `wibo`) using native Xmake batch commands without brittle shell/Python wrapper scripts.
 - **Cross-Platform SDK Detection:** Automatic resolution across Unix (`~/.local/opt/<sdk>`) and Windows (`%APPDATA%`, `%LOCALAPPDATA%`).
+- **First-Class Lua Subsystem (LuaRocks Alternative):** Native project management for pure Lua libraries, native C extensions (`.so`/`.dll` and static retro archives), portable executable launchers, monolithic single-binary bundlers, and zero-friction isolated environments (`LUA_PATH`/`LUA_CPATH`).
 - **Matrix Orchestration CLI:** High-level `xmake forge` tasks to audit, cross-compile, and benchmark builds across target architectures.
 
 ---
@@ -51,6 +52,65 @@ Declare Forge as a project addon dependency:
 ```lua
 add_addons("forge")
 includes("@addon/forge/forge.lua")
+```
+
+---
+
+## Lua Subsystem (Modern LuaRocks Alternative)
+
+Forge provides a first-class build and execution system for Lua 5.4+ projects without requiring external package managers:
+
+### 1. Pure Lua Module (`forge.lua.module`)
+Automatically stages and packages `.lua` source files into `build/lua/` with canonical paths:
+```lua
+target("mylib")
+    add_rules("forge.lua.module")
+    add_files("src/**.lua")
+```
+
+### 2. Native C & Hybrid Modules
+Compiles C code into Lua-loadable shared modules (`.so` / `.dll`) on modern OSes or static archives on vintage platforms:
+```lua
+target("mylib.native")
+    add_rules("forge.lua.module")
+    add_files("src/native/*.c")
+```
+
+### 3. Application Launcher (`forge.lua.app`)
+Generates standalone portable shell (`sh`) / batch (`cmd`) launchers in `build/bin/<app>` and supports instant execution via `xmake run`:
+```lua
+target("my_app")
+    add_rules("forge.lua.app")
+    set_values("forge.lua.entry", "src/main.lua")
+    add_deps("mylib", "mylib.native")
+```
+
+Run directly:
+```bash
+xmake run my_app --help
+./build/bin/my_app --help
+```
+
+### 4. Monolithic Standalone Bundler (`forge.lua.bundle`)
+Embeds Lua runtime and compiles all Lua scripts directly into ANSI C byte arrays via an ERB-style template engine, generating a single self-contained native executable with zero external dependencies:
+```lua
+target("my_standalone_app")
+    add_rules("forge.lua.bundle")
+    add_files("src/**.lua")
+    set_values("forge.lua.entry", "src/main.lua")
+
+    -- Optional: supply a custom C template for specialized runtimes (e.g., SDL, Watcom GUI)
+    -- set_values("forge.lua.template", "src/custom_main.c.in")
+```
+
+### 5. Environment & IDE Integration (`xmake forge env`)
+Export project-local `LUA_PATH` and `LUA_CPATH` without global pollution:
+```bash
+# Set environment in current shell session (like luarocks path)
+eval $(xmake forge env)
+
+# Export .env file for VS Code, Neovim & LuaLS (Language Server)
+xmake forge env --export-env
 ```
 
 ---
