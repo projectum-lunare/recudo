@@ -11,20 +11,19 @@ toolchain("netbsd")
         if os.host() == "netbsd" then
             return true
         end
+        import("modules.detect.bsd", {rootdir = path.join(os.scriptdir(), "..")})
         import("modules.sdk", {rootdir = path.join(os.scriptdir(), "..")})
-        local arch = toolchain:arch() or "x86_64"
-        local prefix = arch .. "--netbsd-"
-        local elf_prefix = arch .. "--netbsdelf-"
-        local find_file = import("lib.detect.find_file")
-        local pathes = path.splitenv(os.getenv("PATH") or "")
-        if find_file(prefix .. "gcc", pathes) or find_file(elf_prefix .. "gcc", pathes) then
+        local arch = bsd.normalize_arch(toolchain:arch())
+        if bsd.is_available("netbsd", arch) then
             return true
         end
-        return sdk.exists("netbsd-sdk", "NETBSD_SDK") or os.getenv("NETBSD_TOOLDIR") ~= nil
+        return sdk.exists("netbsd-sdk", "NETBSD_SDK")
     end)
 
     on_load(function (toolchain)
-        local arch = toolchain:arch() or "x86_64"
+        import("modules.detect.bsd", {rootdir = path.join(os.scriptdir(), "..")})
+        local arch = bsd.normalize_arch(toolchain:arch())
+
         if os.host() == "netbsd" then
             local find_tool = import("lib.detect.find_tool")
             local cc = find_tool("gcc") or find_tool("clang") or find_tool("cc")
@@ -42,33 +41,10 @@ toolchain("netbsd")
         local sdkdir = os.getenv("NETBSD_TOOLDIR") or sdk.find("netbsd-sdk", "NETBSD_SDK")
         local bindir = sdkdir and path.join(sdkdir, "bin")
 
-        local triple_arch = arch
-        if arch == "i386" then
-            triple_arch = "i486"
-        elseif arch == "arm64" then
-            triple_arch = "aarch64"
-        end
-
-        local prefixes = {
-            triple_arch .. "--netbsd-",
-            triple_arch .. "--netbsdelf-",
-            arch .. "--netbsd-",
-            arch .. "--netbsdelf-"
-        }
-
-        local find_tool = import("lib.detect.find_tool")
-        local opt_find = bindir and {pathes = bindir} or {}
-        local found_prefix = nil
-        for _, pfx in ipairs(prefixes) do
-            local t = find_tool(pfx .. "gcc", opt_find) or find_tool(pfx .. "clang", opt_find)
-            if t then
-                found_prefix = pfx
-                break
-            end
-        end
-
+        local found_prefix, found_tool = bsd.find_toolchain("netbsd", arch, {bindir = bindir})
         if not found_prefix and bindir then
-            found_prefix = prefixes[1]
+            local triple_arch = bsd.get_triple_arch("netbsd", arch)
+            found_prefix = triple_arch .. "-netbsd-"
         end
 
         if found_prefix then

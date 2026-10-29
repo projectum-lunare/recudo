@@ -1,5 +1,5 @@
 -- Projectum Lunare Forge
--- Rule: Open Watcom v2 C Compiler & Archiver (DOS 32-bit & OS/2 Warp)
+-- Rule: Open Watcom v2 C Compiler, Linker & Archiver (DOS 32-bit & OS/2 Warp)
 -- Native Xmake batchcmds execution (no external shell/python wrappers)
 
 local function setup_watcom_rule(rule_name)
@@ -46,10 +46,17 @@ local function setup_watcom_rule(rule_name)
             local inc_target = (target_sys == "os2v2") and path.join(sdkdir, "h/os2") or path.join(sdkdir, "h/dos")
             local inc_base = path.join(sdkdir, "h")
 
+            local pathes = {bindir}
+            local binw = path.join(sdkdir, "binw")
+            if os.isdir(binw) then table.insert(pathes, binw) end
+            local binp = path.join(sdkdir, "binp")
+            if os.isdir(binp) then table.insert(pathes, binp) end
+            if os.getenv("PATH") then table.insert(pathes, os.getenv("PATH")) end
+
             local envs = {
                 WATCOM = sdkdir,
                 EDPATH = path.join(sdkdir, "eddat"),
-                PATH = bindir .. path.envsep() .. (os.getenv("PATH") or ""),
+                PATH = table.concat(pathes, path.envsep()),
                 INCLUDE = inc_base .. path.envsep() .. inc_target
             }
 
@@ -83,26 +90,81 @@ local function setup_watcom_rule(rule_name)
         on_linkcmd(function (target, batchcmds, opt)
             local sdkdir = target:data("watcom.sdk")
             local bindir = target:data("watcom.bindir")
-            local wlib = path.join(bindir, "wlib")
+            local target_sys = target:data("watcom.target") or (target:is_plat("os2") and "os2v2" or "dos32a")
             local targetfile = target:targetfile()
+
+            local pathes = {bindir}
+            local binw = path.join(sdkdir, "binw")
+            if os.isdir(binw) then table.insert(pathes, binw) end
+            local binp = path.join(sdkdir, "binp")
+            if os.isdir(binp) then table.insert(pathes, binp) end
+            if os.getenv("PATH") then table.insert(pathes, os.getenv("PATH")) end
 
             local envs = {
                 WATCOM = sdkdir,
                 EDPATH = path.join(sdkdir, "eddat"),
-                PATH = bindir .. path.envsep() .. (os.getenv("PATH") or "")
+                PATH = table.concat(pathes, path.envsep())
             }
 
-            local argv = {"-q", "-b", "-c", "-n", path.absolute(targetfile)}
-            for _, obj in ipairs(target:objectfiles()) do
-                table.insert(argv, "+" .. path.absolute(obj))
-            end
-
             batchcmds:mkdir(path.directory(targetfile))
-            batchcmds:show_progress(opt.progress, "${color.build.target}archiving.watcom %s", targetfile)
-            batchcmds:vrunv(wlib, argv, {envs = envs, curdir = os.projectdir()})
+
+            if target:is_binary() then
+                local owcc = path.join(bindir, "owcc")
+                local argv = {
+                    "-b", target_sys,
+                    "-o", path.absolute(targetfile)
+                }
+
+                for _, obj in ipairs(target:objectfiles()) do
+                    table.insert(argv, path.absolute(obj))
+                end
+                for _, linkdir in ipairs(table.wrap(target:get("linkdirs"))) do
+                    table.insert(argv, "-L" .. path.absolute(linkdir))
+                end
+                for _, link in ipairs(table.wrap(target:get("links"))) do
+                    table.insert(argv, "-l" .. link)
+                end
+                for _, ldflag in ipairs(table.wrap(target:get("ldflags"))) do
+                    table.insert(argv, ldflag)
+                end
+
+                batchcmds:show_progress(opt.progress, "${color.build.target}linking.watcom (%s) %s", target_sys, targetfile)
+                batchcmds:vrunv(owcc, argv, {envs = envs, curdir = os.projectdir()})
+            elseif target:is_shared() then
+                local owcc = path.join(bindir, "owcc")
+                local argv = {
+                    "-bd",
+                    "-b", target_sys,
+                    "-o", path.absolute(targetfile)
+                }
+
+                for _, obj in ipairs(target:objectfiles()) do
+                    table.insert(argv, path.absolute(obj))
+                end
+                for _, linkdir in ipairs(table.wrap(target:get("linkdirs"))) do
+                    table.insert(argv, "-L" .. path.absolute(linkdir))
+                end
+                for _, link in ipairs(table.wrap(target:get("links"))) do
+                    table.insert(argv, "-l" .. link)
+                end
+                for _, ldflag in ipairs(table.wrap(target:get("ldflags"))) do
+                    table.insert(argv, ldflag)
+                end
+
+                batchcmds:show_progress(opt.progress, "${color.build.target}linking.watcom.dll (%s) %s", target_sys, targetfile)
+                batchcmds:vrunv(owcc, argv, {envs = envs, curdir = os.projectdir()})
+            else
+                local wlib = path.join(bindir, "wlib")
+                local argv = {"-q", "-b", "-c", "-n", path.absolute(targetfile)}
+                for _, obj in ipairs(target:objectfiles()) do
+                    table.insert(argv, "+" .. path.absolute(obj))
+                end
+
+                batchcmds:show_progress(opt.progress, "${color.build.target}archiving.watcom %s", targetfile)
+                batchcmds:vrunv(wlib, argv, {envs = envs, curdir = os.projectdir()})
+            end
         end)
 end
 
 setup_watcom_rule("watcom")
 setup_watcom_rule("forge.watcom")
-setup_watcom_rule("vintage.watcom")

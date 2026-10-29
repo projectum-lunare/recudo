@@ -11,19 +11,20 @@ toolchain("freebsd")
         if os.host() == "freebsd" then
             return true
         end
+        import("modules.detect.bsd", {rootdir = path.join(os.scriptdir(), "..")})
         import("modules.sdk", {rootdir = path.join(os.scriptdir(), "..")})
-        local arch = toolchain:arch() or "x86_64"
-        local triple_arch = (arch == "arm64" and "aarch64") or arch
-        local find_file = import("lib.detect.find_file")
-        local pathes = path.splitenv(os.getenv("PATH") or "")
-        if find_file(triple_arch .. "-unknown-freebsd-gcc", pathes) or find_file(arch .. "-freebsd-gcc", pathes) then
+        local arch = bsd.normalize_arch(toolchain:arch())
+        if bsd.is_available("freebsd", arch) then
             return true
         end
-        return sdk.exists("freebsd-sdk", "FREEBSD_SDK") or os.getenv("FREEBSD_SYSROOT") ~= nil
+        return sdk.exists("freebsd-sdk", "FREEBSD_SDK")
     end)
 
     on_load(function (toolchain)
-        local arch = toolchain:arch() or "x86_64"
+        import("modules.detect.bsd", {rootdir = path.join(os.scriptdir(), "..")})
+        local arch = bsd.normalize_arch(toolchain:arch())
+        local triple_arch = bsd.get_triple_arch("freebsd", arch)
+
         if os.host() == "freebsd" then
             local find_tool = import("lib.detect.find_tool")
             local cc = find_tool("clang") or find_tool("gcc") or find_tool("cc")
@@ -41,26 +42,7 @@ toolchain("freebsd")
         local sdkdir = sdk.find("freebsd-sdk", "FREEBSD_SDK")
         local bindir = sdkdir and path.join(sdkdir, "bin")
 
-        local triple_arch = (arch == "arm64" and "aarch64") or arch
-        local prefixes = {
-            triple_arch .. "-unknown-freebsd-",
-            triple_arch .. "-unknown-freebsd13-",
-            triple_arch .. "-unknown-freebsd14-",
-            triple_arch .. "-freebsd-",
-            arch .. "-freebsd-"
-        }
-
-        local find_tool = import("lib.detect.find_tool")
-        local opt_find = bindir and {pathes = bindir} or {}
-        local found_prefix = nil
-        for _, pfx in ipairs(prefixes) do
-            local t = find_tool(pfx .. "gcc", opt_find) or find_tool(pfx .. "clang", opt_find)
-            if t then
-                found_prefix = pfx
-                break
-            end
-        end
-
+        local found_prefix, found_tool = bsd.find_toolchain("freebsd", arch, {bindir = bindir})
         if found_prefix then
             local cc_name = found_prefix .. "gcc"
             local cxx_name = found_prefix .. "g++"
@@ -86,6 +68,7 @@ toolchain("freebsd")
                 toolchain:set("toolset", "ranlib", ranlib_name)
             end
         else
+            local find_tool = import("lib.detect.find_tool")
             local clang = find_tool("clang")
             if clang then
                 toolchain:set("toolset", "cc", clang.program)

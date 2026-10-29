@@ -167,7 +167,6 @@ local function setup_module_rule(rule_name)
 end
 
 setup_module_rule("forge.lua.module")
-setup_module_rule("vintage.lua.module")
 
 -- ==============================================================================
 -- 3. Rule: forge.lua.app (alias: forge.lua.binary)
@@ -290,7 +289,6 @@ end
 
 setup_app_rule("forge.lua.app")
 setup_app_rule("forge.lua.binary")
-setup_app_rule("vintage.lua.app")
 
 -- ==============================================================================
 -- 4. Rule: forge.lua.bundle
@@ -376,4 +374,3 @@ local function setup_bundle_rule(rule_name)
 end
 
 setup_bundle_rule("forge.lua.bundle")
-setup_bundle_rule("vintage.lua.bundle")

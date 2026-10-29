@@ -3,6 +3,10 @@
 
 import("core.base.option")
 import("modules.sdk", {rootdir = path.join(os.scriptdir(), "../..")})
+import("modules.detect.bsd", {rootdir = path.join(os.scriptdir(), "../..")})
+
+local host_os = os.host()
+local host_arch = os.arch()
 
 local targets = {
     amiga = {
@@ -97,48 +101,42 @@ local targets = {
     },
     posix = {
         id = "posix",
-        name = "POSIX Host (Linux / BSD / macOS)",
-        plat = "linux",
-        arch = "x86_64",
+        name = string.format("POSIX Host (%s / %s)", host_os, host_arch),
+        plat = host_os,
+        arch = host_arch,
         toolchain = nil
     }
 }
 
-local function find_program(name)
-    local find_file = import("lib.detect.find_file")
-    local pathes = path.splitenv(os.getenv("PATH") or "")
-    if os.host() == "windows" and not name:endswith(".exe") then
-        return find_file(name .. ".exe", pathes) or find_file(name, pathes)
-    end
-    return find_file(name, pathes)
-end
-
-local function is_sdk_available(t)
+local function is_sdk_available(t, arch)
     if t.id == "posix" then
         return true
     end
     if t.plat == os.host() then
         return true
     end
-    if t.sdk_name and sdk.exists(t.sdk_name, t.sdk_env) then
-        return true
+    local target_arch = arch or t.arch
+    if t.id == "freebsd" or t.id == "openbsd" or t.id == "netbsd" or t.id == "dragonflybsd" then
+        if bsd.is_available(t.id, target_arch) then
+            return true
+        end
     end
-    -- Check if cross-toolchain or tool exists in PATH
-    if t.id == "netbsd" and (find_program("x86_64--netbsd-gcc") or os.getenv("NETBSD_TOOLDIR") ~= nil) then
-        return true
-    elseif t.id == "freebsd" and (find_program("x86_64-unknown-freebsd-gcc") or os.getenv("FREEBSD_SYSROOT") ~= nil) then
-        return true
-    elseif t.id == "openbsd" and (find_program("x86_64-unknown-openbsd-gcc") or os.getenv("OPENBSD_SYSROOT") ~= nil) then
-        return true
-    elseif t.id == "dragonflybsd" and (find_program("x86_64-unknown-dragonfly-gcc") or os.getenv("DRAGONFLY_SYSROOT") ~= nil) then
+    if t.sdk_name and sdk.exists(t.sdk_name, t.sdk_env) then
         return true
     end
     return false
 end
 
-local function get_sdk_path(t)
+local function get_sdk_path(t, arch)
     if t.id == "posix" or t.plat == os.host() then
         return "Host Native Development Tools"
+    end
+    local target_arch = arch or t.arch
+    if t.id == "freebsd" or t.id == "openbsd" or t.id == "netbsd" or t.id == "dragonflybsd" then
+        local pfx, tool = bsd.find_toolchain(t.id, target_arch)
+        if tool then
+            return type(tool) == "table" and tool.program or tool
+        end
     end
     if t.sdk_name and sdk.exists(t.sdk_name, t.sdk_env) then
         return sdk.find(t.sdk_name, t.sdk_env)
@@ -149,7 +147,8 @@ local function get_sdk_path(t)
     return "Host Native Development Tools"
 end
 
-local function show_list()
+local function show_list(opt)
+    opt = opt or {}
     cprint("${bright magenta}╔══════════════════════════════════════════════════════════════════════════════╗")
     cprint("${bright magenta}║${bright yellow}            Projectum Lunare Forge - Cross-Compilation Toolchains             ${bright magenta}║")
     cprint("${bright magenta}╠══════════════════════════════════════════════════════════════════════════════╣")
@@ -163,12 +162,13 @@ local function show_list()
     }
     for _, key in ipairs(order) do
         local t = targets[key]
-        local avail = is_sdk_available(t)
+        local target_arch = opt.arch or t.arch
+        local avail = is_sdk_available(t, target_arch)
         local status_str = avail and "${bright green}✓ Ready${clear}" or "${bright red}✗ Miss ${clear}"
         local key_padded = string.format("%-12s", key)
         local default_tc = (t.id == "posix" and "host-gcc") or "clang/gcc"
         local tc_str = string.format("%-10s", t.toolchain or default_tc)
-        local note = get_sdk_path(t) or ""
+        local note = get_sdk_path(t, target_arch) or ""
         if #note > 43 then
             note = "..." .. note:sub(-40)
         end
@@ -233,19 +233,24 @@ local function build_target(key, opt)
         raise("Unknown forge target: " .. key .. " (run 'xmake forge list' to see available targets)")
     end
 
-    if not is_sdk_available(t) then
-        raise("SDK/Toolchain for target '" .. key .. "' not available. Expected at: " .. (get_sdk_path(t) or "unknown"))
+    local target_arch = opt.arch or t.arch
+    if not is_sdk_available(t, target_arch) then
+        raise("SDK/Toolchain for target '" .. key .. "' not available. Expected at: " .. (get_sdk_path(t, target_arch) or "unknown"))
     end
 
     cprint("${bright yellow}==> [forge] Configuring target: ${bright cyan}" .. t.name .. "${clear}")
 
     local config_args = {"f", "-p", t.plat}
-    if t.arch then
+    if target_arch then
         table.insert(config_args, "-a")
-        table.insert(config_args, t.arch)
+        table.insert(config_args, target_arch)
     end
     if t.toolchain then
         table.insert(config_args, "--toolchain=" .. t.toolchain)
+    end
+    if opt.isolate_builddir then
+        table.insert(config_args, "-o")
+        table.insert(config_args, path.join("build", key))
     end
     if opt.clean then
         table.insert(config_args, "-c")
@@ -269,10 +274,15 @@ local function build_target(key, opt)
 end
 
 function main()
+    -- print(option.options())
     local target_name = option.get("target") or "list"
+    local raw_arch = option.get("arch")
+    local resolved_arch = raw_arch and bsd.normalize_arch(raw_arch) or nil
+
     local opt = {
         verbose = option.get("verbose"),
         clean = option.get("clean"),
+        arch = resolved_arch,
         build_target = option.get("build_target")
     }
 
@@ -283,7 +293,7 @@ function main()
     if target_name == "linux" then target_name = "posix" end
 
     if target_name == "list" then
-        show_list()
+        show_list(opt)
     elseif target_name == "env" or option.get("export-env") or option.get("export_env") or option.get("json") or option.get("fish") then
         show_env()
     elseif target_name == "all" then
@@ -293,22 +303,47 @@ function main()
             "posix"
         }
         local results = {}
-        for _, key in ipairs(order) do
-            local t = targets[key]
-            if is_sdk_available(t) then
-                local start_time = os.mclock()
-                local ok = try {
-                    function ()
-                        build_target(key, opt)
-                        return true
-                    end
-                }
-                local elapsed = os.mclock() - start_time
-                table.insert(results, {key = key, name = t.name, ok = ok, time = elapsed})
-            else
-                table.insert(results, {key = key, name = t.name, ok = false, skipped = true})
-            end
+        local backup_conf = path.join(os.projectdir(), "build", ".forge_config_backup.txt")
+        local conf_file = path.join(os.projectdir(), ".xmake", os.host(), os.arch(), "xmake.conf")
+        local has_prev_config = os.isfile(conf_file)
+
+        if has_prev_config then
+            os.mkdir(path.directory(backup_conf))
+            try { function() os.execv("xmake", {"f", "--export=" .. backup_conf}) end }
         end
+
+        local all_opt = table.clone(opt)
+        all_opt.isolate_builddir = true
+
+        try {
+            function ()
+                for _, key in ipairs(order) do
+                    local t = targets[key]
+                    local target_arch = all_opt.arch or t.arch
+                    if is_sdk_available(t, target_arch) then
+                        local start_time = os.mclock()
+                        local ok = try {
+                            function ()
+                                build_target(key, all_opt)
+                                return true
+                            end
+                        }
+                        local elapsed = os.mclock() - start_time
+                        table.insert(results, {key = key, name = t.name, ok = ok, time = elapsed})
+                    else
+                        table.insert(results, {key = key, name = t.name, ok = false, skipped = true})
+                    end
+                end
+            end,
+            finally {
+                function ()
+                    if has_prev_config and os.isfile(backup_conf) then
+                        try { function() os.execv("xmake", {"f", "--import=" .. backup_conf}) end }
+                        os.rm(backup_conf)
+                    end
+                end
+            }
+        }
 
         cprint("\n${bright green}══════════════════════════════════════════════════════════════════════════════")
         cprint("${bright green}                       FORGE MATRIX BUILD SUMMARY")

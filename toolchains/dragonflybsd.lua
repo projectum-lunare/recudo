@@ -11,13 +11,13 @@ toolchain("dragonflybsd")
         if os.host() == "dragonflybsd" or os.host() == "dragonfly" then
             return true
         end
+        import("modules.detect.bsd", {rootdir = path.join(os.scriptdir(), "..")})
         import("modules.sdk", {rootdir = path.join(os.scriptdir(), "..")})
-        local find_file = import("lib.detect.find_file")
-        local pathes = path.splitenv(os.getenv("PATH") or "")
-        if find_file("x86_64-unknown-dragonfly-gcc", pathes) or find_file("x86_64-dragonfly-gcc", pathes) then
+        local arch = bsd.normalize_arch(toolchain:arch())
+        if bsd.is_available("dragonflybsd", arch) then
             return true
         end
-        return sdk.exists("dragonflybsd-sdk", "DRAGONFLY_SDK") or os.getenv("DRAGONFLY_SYSROOT") ~= nil
+        return sdk.exists("dragonflybsd-sdk", "DRAGONFLY_SDK")
     end)
 
     on_load(function (toolchain)
@@ -34,26 +34,13 @@ toolchain("dragonflybsd")
             return
         end
 
+        import("modules.detect.bsd", {rootdir = path.join(os.scriptdir(), "..")})
         import("modules.sdk", {rootdir = path.join(os.scriptdir(), "..")})
         local sdkdir = sdk.find("dragonflybsd-sdk", "DRAGONFLY_SDK")
         local bindir = sdkdir and path.join(sdkdir, "bin")
 
-        local prefixes = {
-            "x86_64-unknown-dragonfly-",
-            "x86_64-dragonfly-"
-        }
-
-        local find_tool = import("lib.detect.find_tool")
-        local opt_find = bindir and {pathes = bindir} or {}
-        local found_prefix = nil
-        for _, pfx in ipairs(prefixes) do
-            local t = find_tool(pfx .. "gcc", opt_find) or find_tool(pfx .. "clang", opt_find)
-            if t then
-                found_prefix = pfx
-                break
-            end
-        end
-
+        local arch = bsd.normalize_arch(toolchain:arch())
+        local found_prefix, found_tool = bsd.find_toolchain("dragonflybsd", arch, {bindir = bindir})
         if found_prefix then
             local cc_name = found_prefix .. "gcc"
             local cxx_name = found_prefix .. "g++"
@@ -79,6 +66,7 @@ toolchain("dragonflybsd")
                 toolchain:set("toolset", "ranlib", ranlib_name)
             end
         else
+            local find_tool = import("lib.detect.find_tool")
             local clang = find_tool("clang")
             if clang then
                 toolchain:set("toolset", "cc", clang.program)

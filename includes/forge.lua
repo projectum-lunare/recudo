@@ -27,3 +27,45 @@ add_moduledirs(path.join(rootdir, "modules"))
 includes(path.join(rootdir, "rules/**/xmake.lua"))
 includes(path.join(rootdir, "toolchains/*.lua"))
 includes(path.join(rootdir, "plugins/*/xmake.lua"))
+
+-- 5. Auto-bind vintage compiler rules into standard C/C++ build graph
+rule("forge.platform.dispatcher")
+    on_load(function (target)
+        if (target:is_plat("dos", "os2") or target:toolchain("watcom")) and not target:rule("forge.watcom") then
+            import("core.project.project")
+            local r = project.rule("forge.watcom")
+            if r then
+                target:rule_add(r)
+                local load_fn = r:script("load")
+                if load_fn then load_fn(target) end
+            end
+        elseif (target:is_plat("wince") or target:toolchain("evc3")) and not target:rule("forge.evc3") then
+            import("core.project.project")
+            local r = project.rule("forge.evc3")
+            if r then
+                target:rule_add(r)
+                local load_fn = r:script("load")
+                if load_fn then load_fn(target) end
+            end
+        end
+    end)
+
+rule("c")
+    add_deps("c.build")
+    add_deps("utils.inherit.links")
+    add_deps("utils.merge.object", "utils.merge.archive")
+    add_deps("utils.symbols.extract")
+    add_deps("platform.wasm")
+    add_deps("platform.windows")
+    add_deps("linker")
+    add_deps("forge.platform.dispatcher")
+
+rule("c++")
+    add_deps("c++.build")
+    add_deps("utils.inherit.links")
+    add_deps("utils.merge.object", "utils.merge.archive")
+    add_deps("utils.symbols.extract")
+    add_deps("platform.wasm")
+    add_deps("platform.windows")
+    add_deps("linker")
+    add_deps("forge.platform.dispatcher")
