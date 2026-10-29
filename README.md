@@ -69,9 +69,16 @@ target("mylib")
 ```
 
 ### 2. Native C & Hybrid Modules
-Compiles C code into Lua-loadable shared modules (`.so` / `.dll`) on modern OSes or static archives on vintage platforms:
+Compiles C code into Lua-loadable shared modules (`.so` / `.dll`) on modern OSes or static archives on vintage platforms. The linkage mode can be automatic or explicitly specified:
 ```lua
+-- Shared module (default on desktop: Linux, macOS, Windows)
 target("mylib.native")
+    add_rules("forge.lua.module")
+    add_files("src/native/*.c")
+
+-- Static module (default on vintage targets, or forced for static embedding)
+target("mylib.static")
+    set_kind("static") -- or: set_values("forge.lua.kind", "static")
     add_rules("forge.lua.module")
     add_files("src/native/*.c")
 ```

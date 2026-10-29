@@ -6,43 +6,7 @@
 -- and application bundling for modern POSIX, Windows, and vintage targets.
 
 -- ==============================================================================
--- 1. Helper function to stage .lua files
--- ==============================================================================
-local function stage_lua_sourcefiles(target, sourcefiles)
-    local projdir = os.projectdir()
-    local staging_dir = path.join(projdir, "build/lua")
-
-    for _, srcfile in ipairs(table.wrap(sourcefiles)) do
-        if srcfile:endswith(".lua") then
-            local relpath = nil
-            local rootdir = target:extraconf("files", srcfile, "rootdir") or target:values("forge.lua.rootdir")
-            if rootdir then
-                relpath = path.relative(srcfile, rootdir)
-            else
-                local norm = path.normalize(srcfile)
-                if norm:startswith("src/") then
-                    relpath = norm:sub(5)
-                elseif norm:startswith("lua/") then
-                    relpath = norm:sub(5)
-                elseif norm:startswith("lib/") then
-                    relpath = norm:sub(5)
-                else
-                    relpath = norm
-                end
-            end
-
-            local dstfile = path.join(staging_dir, relpath)
-            if not os.isfile(dstfile) or os.mtime(srcfile) > os.mtime(dstfile) then
-                os.mkdir(path.directory(dstfile))
-                os.cp(srcfile, dstfile)
-                cprint("${dim}[forge] Staged %s -> %s${clear}", path.relative(srcfile, projdir), relpath)
-            end
-        end
-    end
-end
-
--- ==============================================================================
--- 2. Rule: forge.lua.module
+-- 1. Rule: forge.lua.module
 -- Supports pure Lua modules, C native modules (.so/.dll), and hybrid modules.
 -- ==============================================================================
 local function setup_module_rule(rule_name)
@@ -65,15 +29,35 @@ local function setup_module_rule(rule_name)
                 -- Native C module or hybrid
                 target:data_set("forge.lua.is_cmodule", true)
 
-                if target:is_plat("amiga", "atari", "kolibri", "dos", "os2", "wince") then
-                    -- Retro / Static linking mode
+                -- Determine static vs shared mode:
+                -- 1. Explicit user choice: set_kind("static"/"shared") or set_values("forge.lua.kind", "static"/"shared")
+                -- 2. Retro platform default: static
+                -- 3. Modern desktop default: shared
+                local user_kind = target:values("forge.lua.kind") or target:get("kind")
+                local is_static = false
+
+                if user_kind == "static" or target:values("forge.lua.static") then
+                    is_static = true
+                elseif user_kind == "shared" then
+                    is_static = false
+                elseif target:is_plat("amiga", "atari", "kolibri", "dos", "os2", "wince") then
+                    is_static = true
+                else
+                    is_static = false
+                end
+
+                if is_static then
+                    -- Static archive mode (.a / .lib)
                     target:set("kind", "static")
                     target:data_set("forge.lua.is_static", true)
                     local clean_name = target:name():gsub("%.", "_"):gsub("%-", "_")
                     target:set("basename", clean_name)
                     target:data_set("forge.lua.open_symbol", "luaopen_" .. clean_name)
+                    if not target:is_plat("amiga", "atari", "kolibri", "dos", "os2", "wince") and not target:is_plat("windows") then
+                        target:add("cxflags", "-fPIC")
+                    end
                 else
-                    -- Modern dynamic shared object (.so / .dll)
+                    -- Dynamic shared module (.so / .dll)
                     target:set("kind", "shared")
                     local parts = target:name():split('.', {plain = true})
                     local leaf = parts[#parts]
@@ -92,21 +76,20 @@ local function setup_module_rule(rule_name)
                         target:set("extension", ".so")
                         target:add("cxflags", "-fPIC")
                     end
-
-                    -- Check Lua dependency
-                    local has_lua_pkg = false
-                    for _, pkg in ipairs(table.wrap(target:get("packages"))) do
-                        if pkg == "lua" or pkg == "luajit" then
-                            has_lua_pkg = true
-                            break
-                        end
-                    end
-                    if not has_lua_pkg then
-                        target:add("packages", "lua")
-                    end
-
-                    target:add("defines", "LUA_COMPAT_5_3")
                 end
+
+                -- Ensure Lua headers and defines for C modules
+                local has_lua_pkg = false
+                for _, pkg in ipairs(table.wrap(target:get("packages"))) do
+                    if pkg == "lua" or pkg == "luajit" then
+                        has_lua_pkg = true
+                        break
+                    end
+                end
+                if not has_lua_pkg then
+                    target:add("packages", "lua")
+                end
+                target:add("defines", "LUA_COMPAT_5_3")
             else
                 -- Pure Lua library
                 target:set("kind", "phony")
@@ -118,8 +101,25 @@ local function setup_module_rule(rule_name)
             target:add("runenvs", "LUA_CPATH", env.get_lua_cpaths())
         end)
 
+        on_config(function (target)
+            if target:data("forge.lua.is_cmodule") then
+                local lua_pkg = target:pkg("lua")
+                if lua_pkg then
+                    local dirs = table.join(table.wrap(lua_pkg:get("sysincludedirs")), table.wrap(lua_pkg:get("includedirs")))
+                    for _, inc in ipairs(dirs) do
+                        target:add("includedirs", inc)
+                        local subinc = path.join(inc, "lua")
+                        if os.isdir(subinc) then
+                            target:add("includedirs", subinc)
+                        end
+                    end
+                end
+            end
+        end)
+
         before_build(function (target)
-            stage_lua_sourcefiles(target, target:sourcefiles())
+            import("lua.env")
+            env.stage_lua_sourcefiles(target, target:sourcefiles())
         end)
 
         on_install(function (target)
@@ -190,7 +190,8 @@ local function setup_app_rule(rule_name)
         end)
 
         before_build(function (target)
-            stage_lua_sourcefiles(target, target:sourcefiles())
+            import("lua.env")
+            env.stage_lua_sourcefiles(target, target:sourcefiles())
         end)
 
         after_build(function (target)
