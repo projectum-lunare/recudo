@@ -78,6 +78,25 @@ add_addons("forge")
 includes("@addon/forge/forge.lua")
 ```
 
+### Vintage Compiler Rules (`forge.watcom` & `forge.evc3`)
+
+For vintage targets with specialized proprietary toolchains, attach the native compilation rules:
+```lua
+target("my_retro_app")
+    set_kind("binary")
+    add_files("src/*.c")
+
+    -- Open Watcom v2 C compiler & linker (DOS 32-bit & OS/2 Warp)
+    if is_plat("dos", "os2") then
+        add_rules("forge.watcom", {override = true})
+    -- Microsoft Embedded Visual C++ 3.0 via wibo (Windows CE)
+    elseif is_plat("wince") then
+        add_rules("forge.evc3", {override = true})
+    end
+```
+*(Standard platforms like `amiga`, `atari`, `kolibri`, `freebsd`, `openbsd`, `netbsd`, `dragonflybsd`, and `linux` use native GCC/Clang toolchains automatically with standard Xmake C/C++ build graphs).*
+
+
 ---
 
 ## Lua Subsystem (Modern LuaRocks Alternative)
