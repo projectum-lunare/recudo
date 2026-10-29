@@ -1,4 +1,4 @@
--- solo - Physical I/O, System Foundations & Hardware Abstractions
+-- Projectum Lunare Forge
 -- Platform: Microsoft Windows CE
 
 platform("wince")

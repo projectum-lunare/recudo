@@ -1,4 +1,4 @@
--- solo - Physical I/O, System Foundations & Hardware Abstractions
+-- Projectum Lunare Forge
 -- Toolchain: AmigaOS m68k (Bebbo GCC)
 -- Reference: dotstar/scripts/tools/amigaos-sdk.lua and solo/mk/amiga.mk
 

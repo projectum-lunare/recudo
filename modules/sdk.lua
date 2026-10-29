@@ -1,5 +1,5 @@
--- solo - Physical I/O, System Foundations & Hardware Abstractions
--- Projectum Lunare - Cross-Platform SDK Detection Module Alias
+-- Projectum Lunare Forge
+-- Cross-Platform SDK Detection Module Alias
 
 local detect = import("detect.sdk", {rootdir = os.scriptdir()})
 

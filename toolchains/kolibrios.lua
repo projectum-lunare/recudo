@@ -1,4 +1,4 @@
--- solo - Physical I/O, System Foundations & Hardware Abstractions
+-- Projectum Lunare Forge
 -- Toolchain: KolibriOS x86 (kos32-gcc)
 -- Reference: dotstar/scripts/tools/kolibrios-sdk.lua and solo/mk/kolibri.mk
 
