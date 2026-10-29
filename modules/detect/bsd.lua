@@ -14,19 +14,30 @@ local arch_map = {
     landisk     = "sh4",
     luna88k     = "m88k",
     itanium     = "ia64",
-    riscv       = "riscv64"
+    rv32        = "riscv32",
+    rv64        = "riscv64",
+    riscv32     = "riscv32",
+    riscv64     = "riscv64"
 }
 
 -- Normalize upstream architecture names to canonical Xmake identifiers
-function normalize_arch(arch)
+function normalize_arch(arch, plat)
     if not arch then return "x86_64" end
     local clean = arch:lower():trim()
+    if clean == "riscv" then
+        if plat == "netbsd" then
+            -- NetBSD explicitly provides both riscv32 and riscv64 ports
+            return "riscv64"
+        else
+            return "riscv64"
+        end
+    end
     return arch_map[clean] or clean
 end
 
 -- Resolve triple architecture identifier for GNU toolchains
 function get_triple_arch(plat, arch)
-    arch = normalize_arch(arch)
+    arch = normalize_arch(arch, plat)
     if arch == "arm64" then
         return "aarch64"
     elseif arch == "i386" and plat == "netbsd" then
@@ -37,7 +48,7 @@ end
 
 -- Generate cross-compilation toolchain prefixes for target BSD platform and architecture
 function get_prefixes(plat, arch)
-    arch = normalize_arch(arch)
+    arch = normalize_arch(arch, plat)
     local triple = get_triple_arch(plat, arch)
     local prefixes = {}
 

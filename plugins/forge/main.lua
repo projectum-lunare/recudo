@@ -249,11 +249,18 @@ local function build_target(key, opt)
         table.insert(config_args, "--toolchain=" .. t.toolchain)
     end
     local exec_opt = {}
+    local logfile
     if opt.isolate_builddir then
         local target_builddir = path.join("build", key)
+        os.mkdir(target_builddir)
+        logfile = path.join(target_builddir, "forge.log")
         table.insert(config_args, "-o")
         table.insert(config_args, target_builddir)
         exec_opt.envs = {XMAKE_CONFIGDIR = path.absolute(target_builddir, os.projectdir())}
+        if not opt.verbose then
+            exec_opt.stdout = logfile
+            exec_opt.stderr = logfile
+        end
     end
     if opt.clean then
         table.insert(config_args, "-c")
@@ -274,6 +281,7 @@ local function build_target(key, opt)
     os.execv("xmake", build_args, exec_opt)
 
     cprint("${bright green}==> [forge] SUCCESS: Built " .. target_desc .. " for ${bright white}" .. t.name .. "${clear}\n")
+    return logfile
 end
 
 function main()
@@ -314,19 +322,28 @@ function main()
             local target_arch = all_opt.arch or t.arch
             if is_sdk_available(t, target_arch) then
                 local start_time = os.mclock()
+                local err_msg = nil
+                local logfile = path.join("build", key, "forge.log")
                 local ok = try {
                     function ()
-                        build_target(key, all_opt)
+                        local lf = build_target(key, all_opt)
+                        if lf then logfile = lf end
                         return true
-                    end
+                    end,
+                    catch {
+                        function (err)
+                            err_msg = tostring(err or "Unknown build error")
+                        end
+                    }
                 }
                 local elapsed = os.mclock() - start_time
-                table.insert(results, {key = key, name = t.name, ok = ok, time = elapsed})
+                table.insert(results, {key = key, name = t.name, ok = ok, time = elapsed, error = err_msg, logfile = logfile})
             else
                 table.insert(results, {key = key, name = t.name, ok = false, skipped = true})
             end
         end
 
+        local has_failures = false
         cprint("\n${bright green}══════════════════════════════════════════════════════════════════════════════")
         cprint("${bright green}                       FORGE MATRIX BUILD SUMMARY")
         cprint("══════════════════════════════════════════════════════════════════════════════${clear}")
@@ -337,11 +354,41 @@ function main()
             elseif r.ok then
                 status_text = string.format("${bright green}[PASS]${clear} in %.2fs", (r.time or 0) / 1000)
             else
+                has_failures = true
                 status_text = "${bright red}[FAIL]${clear}"
             end
             cprint(string.format("  * %-12s %-36s %s", r.key, r.name, status_text))
         end
         cprint("${bright green}══════════════════════════════════════════════════════════════════════════════${clear}\n")
+
+        if has_failures then
+            cprint("${bright red}══════════════════════════════════════════════════════════════════════════════")
+            cprint("${bright red}                       FORGE MATRIX FAILURE DETAILS")
+            cprint("══════════════════════════════════════════════════════════════════════════════${clear}")
+            for _, r in ipairs(results) do
+                if not r.ok and not r.skipped then
+                    cprint("${bright yellow}► Target: ${bright cyan}%s${yellow} (%s)${clear}", r.key, r.name)
+                    if r.error then
+                        cprint("  ${dim}Error:${clear} ${bright red}%s${clear}", r.error)
+                    end
+                    if r.logfile and os.isfile(r.logfile) then
+                        cprint("  ${dim}Log file:${clear} ${bright white}%s${clear}", r.logfile)
+                        local log_content = io.readfile(r.logfile)
+                        if log_content then
+                            local lines = log_content:trim():split("\n", {plain = true})
+                            local start_idx = math.max(1, #lines - 10)
+                            cprint("  ${dim}Last %d log lines:${clear}", #lines - start_idx + 1)
+                            for i = start_idx, #lines do
+                                cprint("    ${dim}%s${clear}", lines[i])
+                            end
+                        end
+                    end
+                    print("")
+                end
+            end
+            cprint("${bright red}══════════════════════════════════════════════════════════════════════════════${clear}\n")
+            raise("Forge matrix build failed for one or more targets.")
+        end
     else
         build_target(target_name, opt)
     end

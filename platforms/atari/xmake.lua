@@ -4,7 +4,7 @@
 platform("atari")
     set_os("atarist")
     set_hosts("linux", "windows", "macosx", "bsd")
-    set_archs("m68k")
+    set_archs("m68k", "m68000", "m68020", "m68030", "m68040", "m68060")
 
     set_formats("static", "lib$(name).a")
     set_formats("object", "$(name).o")

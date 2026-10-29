@@ -25,5 +25,22 @@ toolchain("atarist")
         toolchain:set("toolset", "ranlib", path.join(bindir, "m68k-atari-mint-ranlib"))
 
         toolchain:add("envs", "PATH", bindir)
-        toolchain:add("cxflags", "-std=gnu89", "-m68000", "-msoft-float", {force = true})
+
+        local arch = toolchain:arch() or get_config("arch") or "m68k"
+        local cpu_flag = "-m68000"
+        if arch == "m68020" or arch == "68020" then
+            cpu_flag = "-m68020"
+        elseif arch == "m68030" or arch == "68030" then
+            cpu_flag = "-m68030"
+        elseif arch == "m68040" or arch == "68040" then
+            cpu_flag = "-m68040"
+        elseif arch == "m68060" or arch == "68060" then
+            cpu_flag = "-m68060"
+        elseif arch == "m68020-40" then
+            cpu_flag = "-m68020-40"
+        elseif arch == "m68020-60" then
+            cpu_flag = "-m68020-60"
+        end
+
+        toolchain:add("cxflags", "-std=gnu89", cpu_flag, "-msoft-float")
     end)
