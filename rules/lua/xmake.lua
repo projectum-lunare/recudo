@@ -152,15 +152,13 @@ local function setup_module_rule(rule_name)
                 end
             end
 
-            -- Ensure flat header mirror in include/ alongside namespaced headers
-            if target:data("forge.lua.is_cmodule") then
-                local headerfiles = target:headerfiles()
-                if headerfiles then
-                    for _, h in ipairs(table.wrap(headerfiles)) do
-                        if os.isfile(h) then
-                            os.mkdir(path.join(target:installdir(), "include"))
-                            os.cp(h, path.join(target:installdir(), "include", path.filename(h)))
-                        end
+            -- For shared C modules on POSIX, also mirror lib<name>.so for C linkers (-l<name>)
+            if target:data("forge.lua.is_cmodule") and not target:data("forge.lua.is_static") then
+                if not target:is_plat("windows", "mingw") then
+                    local so_file = path.join(target:installdir(), "lib", target:name() .. ".so")
+                    local lib_so = path.join(target:installdir(), "lib", "lib" .. target:name() .. ".so")
+                    if os.isfile(so_file) and not os.isfile(lib_so) then
+                        os.trycp(so_file, lib_so)
                     end
                 end
             end
