@@ -36,32 +36,34 @@ Instead of reinventing low-level DAG build graphs from scratch, Forge integrates
 
 ---
 
-## Installation & Consumption
+## Installation
 
-### 1. As a Git Submodule (Recommended for Projects)
-
-In your repository:
+Install Forge directly via Xmake:
 ```bash
-git submodule add https://github.com/projectum-lunare/forge.git vendor/forge
+xmake addon --install github:projectum-lunare/forge
 ```
 
-In your project `xmake.lua`:
+---
+
+## Usage in Projects (`xmake.lua`)
+
+Declare Forge as a project addon dependency:
 ```lua
--- Include forge entry point
-if os.isdir("vendor/forge") and os.isfile("vendor/forge/includes/forge.lua") then
-    includes("vendor/forge/includes/forge.lua")
-elseif os.isdir("../forge") and os.isfile("../forge/includes/forge.lua") then
-    includes("../forge/includes/forge.lua")
-end
+add_addons("forge")
+includes("@addon/forge/forge.lua")
 ```
 
-### 2. Global Installation as an Xmake Addon
-
-Install Forge directly into your user addon directory:
-```bash
-mkdir -p ~/.xmake/addons/forge/latest
-cp -r * ~/.xmake/addons/forge/latest/
-```
+> **Note:** For offline or monorepo development, vendoring Forge as a git submodule (`vendor/forge`) or sibling directory (`../forge`) is also supported:
+> ```lua
+> if os.isdir("vendor/forge") then
+>     includes("vendor/forge")
+> elseif os.isdir("../forge") then
+>     includes("../forge")
+> else
+>     add_addons("forge")
+>     includes("@addon/forge/forge.lua")
+> end
+> ```
 
 ---
 
