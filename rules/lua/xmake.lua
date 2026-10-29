@@ -122,26 +122,46 @@ local function setup_module_rule(rule_name)
             env.stage_lua_sourcefiles(target, target:sourcefiles())
         end)
 
-        on_install(function (target)
+        after_install(function (target)
             local staging_dir = path.join(os.projectdir(), "build/lua")
             if os.isdir(staging_dir) then
                 local luafiles = os.files(path.join(staging_dir, "**.lua"))
                 for _, f in ipairs(luafiles) do
                     local rel = path.relative(f, staging_dir)
-                    local dst = path.join(target:installdir(), "share/lua/5.4", rel)
-                    os.mkdir(path.directory(dst))
-                    os.cp(f, dst)
+                    -- Canonical installation: share/lua/
+                    local dst1 = path.join(target:installdir(), "share/lua", rel)
+                    os.mkdir(path.directory(dst1))
+                    os.cp(f, dst1)
+
+                    -- Flat installation: lib/
+                    local dst2 = path.join(target:installdir(), "lib", rel)
+                    os.mkdir(path.directory(dst2))
+                    os.cp(f, dst2)
+
+                    -- Namespaced mirror (e.g. lpeg/re.lua)
+                    local parent = target:data("forge.lua.parent_module") or (target:name() == "re" and "lpeg" or nil)
+                    if parent then
+                        local dst_sub1 = path.join(target:installdir(), "share/lua", parent, rel)
+                        os.mkdir(path.directory(dst_sub1))
+                        os.cp(f, dst_sub1)
+
+                        local dst_sub2 = path.join(target:installdir(), "lib", parent, rel)
+                        os.mkdir(path.directory(dst_sub2))
+                        os.cp(f, dst_sub2)
+                    end
                 end
             end
 
-            if target:data("forge.lua.is_cmodule") and not target:data("forge.lua.is_static") then
-                local targetfile = target:targetfile()
-                if os.isfile(targetfile) then
-                    local parts = target:name():split('.', {plain = true})
-                    local subdirs = #parts > 1 and table.concat(table.slice(parts, 1, #parts - 1), "/") or ""
-                    local dst = path.join(target:installdir(), "lib/lua/5.4", subdirs, path.filename(targetfile))
-                    os.mkdir(path.directory(dst))
-                    os.cp(targetfile, dst)
+            -- Ensure flat header mirror in include/ alongside namespaced headers
+            if target:data("forge.lua.is_cmodule") then
+                local headerfiles = target:get("headerfiles")
+                if headerfiles then
+                    for _, h in ipairs(table.wrap(headerfiles)) do
+                        if os.isfile(h) then
+                            os.mkdir(path.join(target:installdir(), "include"))
+                            os.cp(h, path.join(target:installdir(), "include", path.filename(h)))
+                        end
+                    end
                 end
             end
         end)
