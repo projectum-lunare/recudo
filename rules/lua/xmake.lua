@@ -154,7 +154,7 @@ local function setup_module_rule(rule_name)
 
             -- Ensure flat header mirror in include/ alongside namespaced headers
             if target:data("forge.lua.is_cmodule") then
-                local headerfiles = target:get("headerfiles")
+                local headerfiles = target:headerfiles()
                 if headerfiles then
                     for _, h in ipairs(table.wrap(headerfiles)) do
                         if os.isfile(h) then
