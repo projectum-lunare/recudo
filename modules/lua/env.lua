@@ -58,10 +58,10 @@ end
 function get_relative_path(target, srcfile)
     local rootdir = (target and target:extraconf("files", srcfile, "rootdir")) or (target and target:values("forge.lua.rootdir"))
     if rootdir then
-        return path.relative(srcfile, rootdir)
+        return path.relative(srcfile, rootdir):gsub("\\", "/")
     end
 
-    local norm = path.normalize(srcfile)
+    local norm = path.normalize(srcfile):gsub("\\", "/")
     if norm:startswith("src/") then
         return norm:sub(5)
     elseif norm:startswith("lua/") then
@@ -70,12 +70,14 @@ function get_relative_path(target, srcfile)
         return norm:sub(5)
     end
 
-    return path.relative(srcfile, os.projectdir())
+    return path.relative(srcfile, os.projectdir()):gsub("\\", "/")
 end
 
 -- Resolve canonical Lua module name from a relative path
 function get_module_name(relpath)
-    local modname = relpath:gsub("%.lua$", ""):gsub("[/\\]", ".")
+    if not relpath then return "main" end
+    local clean = relpath:gsub("\\", "/")
+    local modname = clean:gsub("%.lua$", ""):gsub("/", ".")
     if modname:endswith(".init") and #modname > 5 then
         modname = modname:sub(1, -6)
     end
