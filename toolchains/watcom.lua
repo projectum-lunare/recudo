@@ -1,4 +1,4 @@
--- solo - Physical I/O, System Foundations & Hardware Abstractions
+-- Projectum Lunare Forge
 -- Toolchain: Open Watcom v2 (DOS 32-bit Protected Mode)
 -- Uses native Xmake rule: vintage.watcom
 

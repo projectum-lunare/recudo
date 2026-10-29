@@ -1,4 +1,4 @@
--- solo - Physical I/O, System Foundations & Hardware Abstractions
+-- Projectum Lunare Forge
 -- Platform: OS/2 32-bit Warp
 
 platform("os2")

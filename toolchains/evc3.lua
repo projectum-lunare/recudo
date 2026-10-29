@@ -1,4 +1,4 @@
--- solo - Physical I/O, System Foundations & Hardware Abstractions
+-- Projectum Lunare Forge
 -- Toolchain: Microsoft Embedded Visual C++ 3.0 (Windows CE) via wibo
 -- Uses native Xmake rule: vintage.evc3
 

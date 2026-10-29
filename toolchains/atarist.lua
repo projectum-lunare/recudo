@@ -1,4 +1,4 @@
--- solo - Physical I/O, System Foundations & Hardware Abstractions
+-- Projectum Lunare Forge
 -- Toolchain: Atari ST m68k (m68k-atari-mint-gcc)
 -- Reference: dotstar/scripts/tools/atarist-sdk.lua and solo/mk/atarist.mk
 

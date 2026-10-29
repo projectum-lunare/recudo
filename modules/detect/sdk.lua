@@ -1,5 +1,5 @@
--- solo - Physical I/O, System Foundations & Hardware Abstractions
--- Projectum Lunare - Cross-Platform SDK Detection Module
+-- Projectum Lunare Forge
+-- Cross-Platform SDK Detection Module
 -- Supports Unix ($HOME/.local/opt/<sdk>) and Windows (%APPDATA%/<sdk>, %LOCALAPPDATA%/<sdk>)
 
 function find(name, env_name, opt)
