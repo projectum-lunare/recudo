@@ -21,4 +21,4 @@ platform("netbsd")
 
     set_installdir("/usr/pkg")
 
-    set_toolchains("envs", "gcc", "clang", "yasm", "nasm", "fasm", "go", "rust", "gfortran", "zig", "dotnet")
+    set_toolchains("netbsd")

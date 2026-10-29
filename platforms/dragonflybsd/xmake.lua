@@ -14,7 +14,7 @@ platform("dragonflybsd")
 
     set_installdir("/usr/local")
 
-    set_toolchains("envs", "gcc", "clang", "yasm", "nasm", "fasm", "go", "rust", "gfortran", "zig", "dotnet")
+    set_toolchains("dragonflybsd")
 
 platform("dragonfly")
     set_os("dragonfly")
@@ -28,4 +28,4 @@ platform("dragonfly")
 
     set_installdir("/usr/local")
 
-    set_toolchains("envs", "gcc", "clang", "yasm", "nasm", "fasm", "go", "rust", "gfortran", "zig", "dotnet")
+    set_toolchains("dragonflybsd")

@@ -1,6 +1,6 @@
 -- Projectum Lunare Forge
 -- Toolchain: Open Watcom v2 (DOS 32-bit Protected Mode)
--- Uses native Xmake rule: vintage.watcom
+-- Uses native Xmake rule: forge.watcom
 
 toolchain("watcom")
     set_kind("standalone")

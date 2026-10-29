@@ -120,10 +120,26 @@ function generate_bundle_source(files, opt)
     for idx, f in ipairs(files) do
         local content = io.readfile(f)
         if content then
-            local relpath = opt.file_map and opt.file_map[f] or path.filename(f)
-            local modname = relpath:gsub("%.lua$", ""):gsub("/", "."):gsub("\\", ".")
-            if modname:endswith(".init") then
-                modname = modname:sub(1, -6)
+            local relpath = opt.file_map and opt.file_map[f]
+            if not relpath then
+                local norm = path.normalize(f)
+                if norm:startswith("src/") then
+                    relpath = norm:sub(5)
+                elseif norm:startswith("lua/") then
+                    relpath = norm:sub(5)
+                elseif norm:startswith("lib/") then
+                    relpath = norm:sub(5)
+                else
+                    relpath = norm
+                end
+            end
+
+            local modname = opt.module_map and opt.module_map[f]
+            if not modname then
+                modname = relpath:gsub("%.lua$", ""):gsub("[/\\]", ".")
+                if modname:endswith(".init") and #modname > 5 then
+                    modname = modname:sub(1, -6)
+                end
             end
 
             table.insert(modules, {

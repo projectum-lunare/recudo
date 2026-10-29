@@ -1,6 +1,6 @@
 -- Projectum Lunare Forge
 -- Toolchain: Microsoft Embedded Visual C++ 3.0 (Windows CE) via wibo
--- Uses native Xmake rule: vintage.evc3
+-- Uses native Xmake rule: forge.evc3
 
 toolchain("evc3")
     set_kind("standalone")

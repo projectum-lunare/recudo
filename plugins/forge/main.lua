@@ -12,8 +12,7 @@ local targets = {
         arch = "m68k",
         toolchain = "amigaos",
         sdk_name = "amigaos-sdk",
-        sdk_env = "AMIGA_SDK",
-        artifact = "build/amiga/libsolo.a"
+        sdk_env = "AMIGA_SDK"
     },
     atari = {
         id = "atari",
@@ -22,8 +21,7 @@ local targets = {
         arch = "m68k",
         toolchain = "atarist",
         sdk_name = "atarist-sdk",
-        sdk_env = "ATARIST_SDK",
-        artifact = "build/atarist/libsolo.a"
+        sdk_env = "ATARIST_SDK"
     },
     kolibri = {
         id = "kolibri",
@@ -32,8 +30,7 @@ local targets = {
         arch = "i386",
         toolchain = "kolibrios",
         sdk_name = "kolibrios-sdk",
-        sdk_env = "KOLIBRI_SDK",
-        artifact = "build/kolibri/libsolo.a"
+        sdk_env = "KOLIBRI_SDK"
     },
     dos = {
         id = "dos",
@@ -42,8 +39,7 @@ local targets = {
         arch = "i386",
         toolchain = "watcom",
         sdk_name = "watcom",
-        sdk_env = "WATCOM",
-        artifact = "build/dos/libsolo.a"
+        sdk_env = "WATCOM"
     },
     os2 = {
         id = "os2",
@@ -52,8 +48,7 @@ local targets = {
         arch = "i386",
         toolchain = "watcom",
         sdk_name = "watcom",
-        sdk_env = "WATCOM",
-        artifact = "build/os2/libsolo.a"
+        sdk_env = "WATCOM"
     },
     wince = {
         id = "wince",
@@ -62,74 +57,96 @@ local targets = {
         arch = "arm",
         toolchain = "evc3",
         sdk_name = "evc3",
-        sdk_env = "EVC3_DIR",
-        artifact = "build/windows_ce/arm/libsolo.a"
+        sdk_env = "EVC3_DIR"
     },
     freebsd = {
         id = "freebsd",
         name = "FreeBSD (x86_64, arm64, riscv64, ppc)",
         plat = "freebsd",
         arch = "x86_64",
-        toolchain = nil,
-        artifact = "build/freebsd/libsolo.a"
+        toolchain = "freebsd",
+        sdk_name = "freebsd-sdk",
+        sdk_env = "FREEBSD_SDK"
     },
     openbsd = {
         id = "openbsd",
         name = "OpenBSD (x86_64, arm64, riscv64, sparc64)",
         plat = "openbsd",
         arch = "x86_64",
-        toolchain = nil,
-        artifact = "build/openbsd/libsolo.a"
+        toolchain = "openbsd",
+        sdk_name = "openbsd-sdk",
+        sdk_env = "OPENBSD_SDK"
     },
     netbsd = {
         id = "netbsd",
         name = "NetBSD (x86_64, arm, m68k, vax, mips)",
         plat = "netbsd",
         arch = "x86_64",
-        toolchain = nil,
-        artifact = "build/netbsd/libsolo.a"
+        toolchain = "netbsd",
+        sdk_name = "netbsd-sdk",
+        sdk_env = "NETBSD_SDK"
     },
     dragonflybsd = {
         id = "dragonflybsd",
         name = "DragonFly BSD (x86_64)",
         plat = "dragonflybsd",
         arch = "x86_64",
-        toolchain = nil,
-        artifact = "build/dragonflybsd/libsolo.a"
+        toolchain = "dragonflybsd",
+        sdk_name = "dragonflybsd-sdk",
+        sdk_env = "DRAGONFLY_SDK"
     },
     posix = {
         id = "posix",
         name = "POSIX Host (Linux / BSD / macOS)",
         plat = "linux",
         arch = "x86_64",
-        toolchain = nil,
-        artifact = "build/posix/libsolo.a"
+        toolchain = nil
     }
 }
 
+local function find_program(name)
+    local find_file = import("lib.detect.find_file")
+    local pathes = path.splitenv(os.getenv("PATH") or "")
+    if os.host() == "windows" and not name:endswith(".exe") then
+        return find_file(name .. ".exe", pathes) or find_file(name, pathes)
+    end
+    return find_file(name, pathes)
+end
+
 local function is_sdk_available(t)
-    if not t.sdk_name then
+    if t.id == "posix" then
         return true
     end
-    return sdk.exists(t.sdk_name, t.sdk_env)
+    if t.plat == os.host() then
+        return true
+    end
+    if t.sdk_name and sdk.exists(t.sdk_name, t.sdk_env) then
+        return true
+    end
+    -- Check if cross-toolchain or tool exists in PATH
+    if t.id == "netbsd" and (find_program("x86_64--netbsd-gcc") or os.getenv("NETBSD_TOOLDIR") ~= nil) then
+        return true
+    elseif t.id == "freebsd" and (find_program("x86_64-unknown-freebsd-gcc") or os.getenv("FREEBSD_SYSROOT") ~= nil) then
+        return true
+    elseif t.id == "openbsd" and (find_program("x86_64-unknown-openbsd-gcc") or os.getenv("OPENBSD_SYSROOT") ~= nil) then
+        return true
+    elseif t.id == "dragonflybsd" and (find_program("x86_64-unknown-dragonfly-gcc") or os.getenv("DRAGONFLY_SYSROOT") ~= nil) then
+        return true
+    end
+    return false
 end
 
 local function get_sdk_path(t)
-    if not t.sdk_name then
-        if t.id == "posix" then
-            return "Host Native Development Tools"
-        elseif t.id == "freebsd" then
-            return "FreeBSD Native / Cross-Toolchain"
-        elseif t.id == "openbsd" then
-            return "OpenBSD Native / Cross-Toolchain"
-        elseif t.id == "netbsd" then
-            return "NetBSD Native / Cross-Toolchain"
-        elseif t.id == "dragonflybsd" then
-            return "DragonFly BSD Native / Cross-Toolchain"
-        end
+    if t.id == "posix" or t.plat == os.host() then
         return "Host Native Development Tools"
     end
-    return sdk.find(t.sdk_name, t.sdk_env)
+    if t.sdk_name and sdk.exists(t.sdk_name, t.sdk_env) then
+        return sdk.find(t.sdk_name, t.sdk_env)
+    end
+    if t.sdk_name then
+        return sdk.find(t.sdk_name, t.sdk_env) or ("Cross SDK (" .. (t.sdk_env or t.sdk_name) .. ")")
+    end
+    return "Host Native Development Tools"
 end
 
 local function show_list()
@@ -149,7 +166,7 @@ local function show_list()
         local avail = is_sdk_available(t)
         local status_str = avail and "${bright green}✓ Ready${clear}" or "${bright red}✗ Miss ${clear}"
         local key_padded = string.format("%-12s", key)
-        local default_tc = (t.id == "posix" and "host-gcc") or (t.id == "netbsd" and "gcc/clang") or "clang/gcc"
+        local default_tc = (t.id == "posix" and "host-gcc") or "clang/gcc"
         local tc_str = string.format("%-10s", t.toolchain or default_tc)
         local note = get_sdk_path(t) or ""
         if #note > 43 then
@@ -162,15 +179,19 @@ local function show_list()
 
     local lua_env = import("lua.env", {rootdir = path.join(os.scriptdir(), "../../modules")})
     local lua_bin = lua_env.find_lua()
-    local lua_ver = try { function() return os.iorunv(lua_bin, {"-v"}) end } or "not found"
-    cprint("${dim}Lua Subsystem: ${bright cyan}" .. lua_ver:trim() .. "${dim} via ${yellow}" .. lua_bin .. "${clear}")
+    if lua_bin then
+        local lua_ver = try { function() return os.iorunv(lua_bin, {"-v"}) end } or "found"
+        cprint("${dim}Lua Subsystem: ${bright cyan}" .. lua_ver:trim() .. "${dim} via ${yellow}" .. lua_bin .. "${clear}")
+    else
+        cprint("${bright red}Lua Subsystem: No compatible Lua >= 5.4 interpreter detected in PATH or LUA_BIN${clear}")
+    end
 
     print("\nUsage:")
-    print("  xmake forge <target>         # e.g. xmake forge amiga, xmake forge posix")
-    print("  xmake forge all              # build all available targets")
-    print("  xmake forge list             # show this table")
-    io.write("  xmake forge env              # output LUA_PATH & LUA_CPATH (eval $(xmake forge env))\n")
-    print("  xmake forge env --export-env # generate .env file for IDEs and LuaLS")
+    print("  xmake forge <target> [build_target]  # e.g. xmake forge amiga, xmake forge posix")
+    print("  xmake forge all                      # build all available targets")
+    print("  xmake forge list                     # show this table")
+    io.write("  xmake forge env                      # output LUA_PATH & LUA_CPATH (eval $(xmake forge env))\n")
+    print("  xmake forge env --export-env         # generate .env file for IDEs and LuaLS")
 end
 
 local function show_env()
@@ -213,7 +234,7 @@ local function build_target(key, opt)
     end
 
     if not is_sdk_available(t) then
-        raise("SDK for target '" .. key .. "' not found at: " .. (get_sdk_path(t) or "unknown"))
+        raise("SDK/Toolchain for target '" .. key .. "' not available. Expected at: " .. (get_sdk_path(t) or "unknown"))
     end
 
     cprint("${bright yellow}==> [forge] Configuring target: ${bright cyan}" .. t.name .. "${clear}")
@@ -226,30 +247,33 @@ local function build_target(key, opt)
     if t.toolchain then
         table.insert(config_args, "--toolchain=" .. t.toolchain)
     end
-    table.insert(config_args, "-c")
+    if opt.clean then
+        table.insert(config_args, "-c")
+    end
 
     os.execv("xmake", config_args)
 
-    cprint("${bright yellow}==> [forge] Building solo_static for ${bright cyan}" .. key .. "${clear}...")
+    local target_desc = opt.build_target and ("target '" .. opt.build_target .. "'") or "default target(s)"
+    cprint("${bright yellow}==> [forge] Building " .. target_desc .. " for ${bright cyan}" .. key .. "${clear}...")
     local build_args = {"build"}
     if opt.verbose then
         table.insert(build_args, "-v")
     end
-    table.insert(build_args, "solo_static")
+    if opt.build_target then
+        table.insert(build_args, opt.build_target)
+    end
 
     os.execv("xmake", build_args)
 
-    if t.artifact and os.isfile(t.artifact) then
-        local sz = os.filesize(t.artifact)
-        cprint("${bright green}==> [forge] SUCCESS: ${bright white}" .. t.artifact .. " ${dim}(" .. sz .. " bytes)${clear}\n")
-    end
+    cprint("${bright green}==> [forge] SUCCESS: Built " .. target_desc .. " for ${bright white}" .. t.name .. "${clear}\n")
 end
 
 function main()
     local target_name = option.get("target") or "list"
     local opt = {
         verbose = option.get("verbose"),
-        clean = option.get("clean")
+        clean = option.get("clean"),
+        build_target = option.get("build_target")
     }
 
     -- Support shorthand alias
@@ -263,7 +287,11 @@ function main()
     elseif target_name == "env" or option.get("export-env") or option.get("export_env") or option.get("json") or option.get("fish") then
         show_env()
     elseif target_name == "all" then
-        local order = {"amiga", "atari", "kolibri", "dos", "os2", "wince", "posix"}
+        local order = {
+            "amiga", "atari", "kolibri", "dos", "os2", "wince",
+            "freebsd", "openbsd", "netbsd", "dragonflybsd",
+            "posix"
+        }
         local results = {}
         for _, key in ipairs(order) do
             local t = targets[key]
@@ -294,7 +322,7 @@ function main()
             else
                 status_text = "${bright red}[FAIL]${clear}"
             end
-            cprint(string.format("  * %-10s %-36s %s", r.key, r.name, status_text))
+            cprint(string.format("  * %-12s %-36s %s", r.key, r.name, status_text))
         end
         cprint("${bright green}══════════════════════════════════════════════════════════════════════════════${clear}\n")
     else
