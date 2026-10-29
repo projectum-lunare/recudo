@@ -248,15 +248,18 @@ local function build_target(key, opt)
     if t.toolchain then
         table.insert(config_args, "--toolchain=" .. t.toolchain)
     end
+    local exec_opt = {}
     if opt.isolate_builddir then
+        local target_builddir = path.join("build", key)
         table.insert(config_args, "-o")
-        table.insert(config_args, path.join("build", key))
+        table.insert(config_args, target_builddir)
+        exec_opt.envs = {XMAKE_CONFIGDIR = path.absolute(target_builddir, os.projectdir())}
     end
     if opt.clean then
         table.insert(config_args, "-c")
     end
 
-    os.execv("xmake", config_args)
+    os.execv("xmake", config_args, exec_opt)
 
     local target_desc = opt.build_target and ("target '" .. opt.build_target .. "'") or "default target(s)"
     cprint("${bright yellow}==> [forge] Building " .. target_desc .. " for ${bright cyan}" .. key .. "${clear}...")
@@ -268,7 +271,7 @@ local function build_target(key, opt)
         table.insert(build_args, opt.build_target)
     end
 
-    os.execv("xmake", build_args)
+    os.execv("xmake", build_args, exec_opt)
 
     cprint("${bright green}==> [forge] SUCCESS: Built " .. target_desc .. " for ${bright white}" .. t.name .. "${clear}\n")
 end
@@ -303,47 +306,26 @@ function main()
             "posix"
         }
         local results = {}
-        local backup_conf = path.join(os.projectdir(), "build", ".forge_config_backup.txt")
-        local conf_file = path.join(os.projectdir(), ".xmake", os.host(), os.arch(), "xmake.conf")
-        local has_prev_config = os.isfile(conf_file)
-
-        if has_prev_config then
-            os.mkdir(path.directory(backup_conf))
-            try { function() os.execv("xmake", {"f", "--export=" .. backup_conf}) end }
-        end
-
         local all_opt = table.clone(opt)
         all_opt.isolate_builddir = true
 
-        try {
-            function ()
-                for _, key in ipairs(order) do
-                    local t = targets[key]
-                    local target_arch = all_opt.arch or t.arch
-                    if is_sdk_available(t, target_arch) then
-                        local start_time = os.mclock()
-                        local ok = try {
-                            function ()
-                                build_target(key, all_opt)
-                                return true
-                            end
-                        }
-                        local elapsed = os.mclock() - start_time
-                        table.insert(results, {key = key, name = t.name, ok = ok, time = elapsed})
-                    else
-                        table.insert(results, {key = key, name = t.name, ok = false, skipped = true})
+        for _, key in ipairs(order) do
+            local t = targets[key]
+            local target_arch = all_opt.arch or t.arch
+            if is_sdk_available(t, target_arch) then
+                local start_time = os.mclock()
+                local ok = try {
+                    function ()
+                        build_target(key, all_opt)
+                        return true
                     end
-                end
-            end,
-            finally {
-                function ()
-                    if has_prev_config and os.isfile(backup_conf) then
-                        try { function() os.execv("xmake", {"f", "--import=" .. backup_conf}) end }
-                        os.rm(backup_conf)
-                    end
-                end
-            }
-        }
+                }
+                local elapsed = os.mclock() - start_time
+                table.insert(results, {key = key, name = t.name, ok = ok, time = elapsed})
+            else
+                table.insert(results, {key = key, name = t.name, ok = false, skipped = true})
+            end
+        end
 
         cprint("\n${bright green}══════════════════════════════════════════════════════════════════════════════")
         cprint("${bright green}                       FORGE MATRIX BUILD SUMMARY")
