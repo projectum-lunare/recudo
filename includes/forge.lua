@@ -7,8 +7,9 @@ set_defaultarchs("amiga|m68k", "atari|m68k", "kolibri|i386", "dos|i386", "os2|i3
 -- 2. Resolve forge addon root directory
 local rootdir = path.directory(os.scriptdir())
 
--- 3. Register platform definitions (amiga, atari, kolibri, dos, os2, wince)
+-- 3. Register platform definitions and addon modules
 add_platformdirs(path.join(rootdir, "platforms"))
+add_moduledirs(path.join(rootdir, "modules"))
 
 -- 4. Register native rules, toolchains and CLI plugins
 includes(path.join(rootdir, "rules/**/xmake.lua"))

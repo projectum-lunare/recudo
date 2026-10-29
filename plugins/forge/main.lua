@@ -111,10 +111,51 @@ local function show_list()
         cprint("${bright magenta}║ ${bright cyan}" .. key_padded .. " " .. status_str .. "  ${yellow}" .. tc_str .. " ${dim}" .. note_padded .. " ${bright magenta}║")
     end
     cprint("${bright magenta}╚══════════════════════════════════════════════════════════════════════════════╝${clear}")
+
+    local lua_env = import("lua.env", {rootdir = path.join(os.scriptdir(), "../../modules")})
+    local lua_bin = lua_env.find_lua()
+    local lua_ver = try { function() return os.iorunv(lua_bin, {"-v"}) end } or "not found"
+    cprint("${dim}Lua Subsystem: ${bright cyan}" .. lua_ver:trim() .. "${dim} via ${yellow}" .. lua_bin .. "${clear}")
+
     print("\nUsage:")
-    print("  xmake forge <target>         # e.g. xmake forge amiga")
+    print("  xmake forge <target>         # e.g. xmake forge amiga, xmake forge posix")
     print("  xmake forge all              # build all available targets")
     print("  xmake forge list             # show this table")
+    io.write("  xmake forge env              # output LUA_PATH & LUA_CPATH (eval $(xmake forge env))\n")
+    print("  xmake forge env --export-env # generate .env file for IDEs and LuaLS")
+end
+
+local function show_env()
+    local lua_env = import("lua.env", {rootdir = path.join(os.scriptdir(), "../../modules")})
+    local projdir = os.projectdir()
+
+    if option.get("export-env") or option.get("export_env") then
+        local env_file = path.join(projdir, ".env")
+        lua_env.write_dotenv(projdir, env_file)
+        cprint("${bright green}==> [forge] Exported environment to: ${bright white}%s${clear}", env_file)
+        return
+    end
+
+    if option.get("json") then
+        import("core.base.json")
+        local data = lua_env.get_env(projdir)
+        print(json.encode(data))
+        return
+    end
+
+    if option.get("fish") then
+        local p = lua_env.get_lua_paths(projdir)
+        local cp = lua_env.get_lua_cpaths(projdir)
+        print("set -gx LUA_PATH \"" .. p .. "\"")
+        print("set -gx LUA_CPATH \"" .. cp .. "\"")
+        return
+    end
+
+    -- Standard POSIX export: eval $(xmake forge env)
+    local p = lua_env.get_lua_paths(projdir)
+    local cp = lua_env.get_lua_cpaths(projdir)
+    print("export LUA_PATH=\"" .. p .. "\"")
+    print("export LUA_CPATH=\"" .. cp .. "\"")
 end
 
 local function build_target(key, opt)
@@ -171,6 +212,8 @@ function main()
 
     if target_name == "list" then
         show_list()
+    elseif target_name == "env" or option.get("export-env") or option.get("export_env") or option.get("json") or option.get("fish") then
+        show_env()
     elseif target_name == "all" then
         local order = {"amiga", "atari", "kolibri", "dos", "os2", "wince", "posix"}
         local results = {}
