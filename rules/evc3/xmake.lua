@@ -109,4 +109,3 @@ end
 
 setup_evc3_rule("evc3")
 setup_evc3_rule("forge.evc3")
-setup_evc3_rule("vintage.evc3")

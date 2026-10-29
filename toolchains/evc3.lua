@@ -10,12 +10,32 @@ toolchain("evc3")
     on_check(function (toolchain)
         import("modules.sdk", {rootdir = path.join(os.scriptdir(), "..")})
         local evc_dir = sdk.find("evc3", "EVC3_DIR")
-        local wibo_bin = os.getenv("WIBO_BIN") or path.join(sdk.find("wibo", "WIBO_DIR"), "bin/wibo")
-        return evc_dir and os.isdir(evc_dir) and os.isexec(wibo_bin)
+        local wibo_bin = os.getenv("WIBO_BIN")
+        if not wibo_bin then
+            local wibo_dir = sdk.find("wibo", "WIBO_DIR")
+            if wibo_dir then
+                wibo_bin = path.join(wibo_dir, "bin/wibo")
+            end
+        end
+        return evc_dir and os.isdir(evc_dir) and wibo_bin and os.isexec(wibo_bin)
     end)
 
     on_load(function (toolchain)
         import("modules.sdk", {rootdir = path.join(os.scriptdir(), "..")})
         local evc_dir = sdk.find("evc3", "EVC3_DIR")
-        toolchain:add("envs", "EVC3_DIR", evc_dir)
+        local wibo_bin = os.getenv("WIBO_BIN")
+        if not wibo_bin then
+            local wibo_dir = sdk.find("wibo", "WIBO_DIR")
+            if wibo_dir then
+                wibo_bin = path.join(wibo_dir, "bin/wibo")
+            end
+        end
+
+        toolchain:set("toolset", "ar", "ar")
+        if evc_dir then
+            toolchain:add("envs", "EVC3_DIR", evc_dir)
+        end
+        if wibo_bin then
+            toolchain:add("envs", "WIBO_BIN", wibo_bin)
+        end
     end)
