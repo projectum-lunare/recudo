@@ -9,7 +9,7 @@ local menu_conf = {
         {nil, "export-env",  "k", nil, "Export LUA_PATH and LUA_CPATH into .env file."},
         {nil, "json",        "k", nil, "Output environment paths in JSON format."},
         {nil, "fish",        "k", nil, "Output environment paths for fish shell."},
-        {nil, "target",      "v", "list", "Target: amiga, atari, kolibri, dos, os2, posix, all, list, env, run"}
+        {nil, "target",      "v", "list", "Target: amiga, atari, kolibri, dos, os2, wince, freebsd, openbsd, netbsd, dragonflybsd, posix, all, list, env, run"}
     }
 }
 
