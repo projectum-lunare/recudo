@@ -65,6 +65,38 @@ local targets = {
         sdk_env = "EVC3_DIR",
         artifact = "build/windows_ce/arm/libsolo.a"
     },
+    freebsd = {
+        id = "freebsd",
+        name = "FreeBSD (x86_64, arm64, riscv64, ppc)",
+        plat = "freebsd",
+        arch = "x86_64",
+        toolchain = nil,
+        artifact = "build/freebsd/libsolo.a"
+    },
+    openbsd = {
+        id = "openbsd",
+        name = "OpenBSD (x86_64, arm64, riscv64, sparc64)",
+        plat = "openbsd",
+        arch = "x86_64",
+        toolchain = nil,
+        artifact = "build/openbsd/libsolo.a"
+    },
+    netbsd = {
+        id = "netbsd",
+        name = "NetBSD (x86_64, arm, m68k, vax, mips)",
+        plat = "netbsd",
+        arch = "x86_64",
+        toolchain = nil,
+        artifact = "build/netbsd/libsolo.a"
+    },
+    dragonflybsd = {
+        id = "dragonflybsd",
+        name = "DragonFly BSD (x86_64)",
+        plat = "dragonflybsd",
+        arch = "x86_64",
+        toolchain = nil,
+        artifact = "build/dragonflybsd/libsolo.a"
+    },
     posix = {
         id = "posix",
         name = "POSIX Host (Linux / BSD / macOS)",
@@ -84,6 +116,17 @@ end
 
 local function get_sdk_path(t)
     if not t.sdk_name then
+        if t.id == "posix" then
+            return "Host Native Development Tools"
+        elseif t.id == "freebsd" then
+            return "FreeBSD Native / Cross-Toolchain"
+        elseif t.id == "openbsd" then
+            return "OpenBSD Native / Cross-Toolchain"
+        elseif t.id == "netbsd" then
+            return "NetBSD Native / Cross-Toolchain"
+        elseif t.id == "dragonflybsd" then
+            return "DragonFly BSD Native / Cross-Toolchain"
+        end
         return "Host Native Development Tools"
     end
     return sdk.find(t.sdk_name, t.sdk_env)
@@ -93,22 +136,27 @@ local function show_list()
     cprint("${bright magenta}╔══════════════════════════════════════════════════════════════════════════════╗")
     cprint("${bright magenta}║${bright yellow}            Projectum Lunare Forge - Cross-Compilation Toolchains             ${bright magenta}║")
     cprint("${bright magenta}╠══════════════════════════════════════════════════════════════════════════════╣")
-    cprint("${bright magenta}║ ${dim}Target    Status  Toolchain   SDK Location / Platform Notes                  ${bright magenta}║")
+    cprint("${bright magenta}║ ${dim}Target       Status Toolchain  SDK Location / Platform Notes                 ${bright magenta}║")
     cprint("${bright magenta}╟──────────────────────────────────────────────────────────────────────────────╢")
 
-    local order = {"amiga", "atari", "kolibri", "dos", "os2", "wince", "posix"}
+    local order = {
+        "amiga", "atari", "kolibri", "dos", "os2", "wince",
+        "freebsd", "openbsd", "netbsd", "dragonflybsd",
+        "posix"
+    }
     for _, key in ipairs(order) do
         local t = targets[key]
         local avail = is_sdk_available(t)
         local status_str = avail and "${bright green}✓ Ready${clear}" or "${bright red}✗ Miss ${clear}"
-        local key_padded = string.format("%-8s", key)
-        local tc_str = string.format("%-11s", t.toolchain or "host-gcc")
+        local key_padded = string.format("%-12s", key)
+        local default_tc = (t.id == "posix" and "host-gcc") or (t.id == "netbsd" and "gcc/clang") or "clang/gcc"
+        local tc_str = string.format("%-10s", t.toolchain or default_tc)
         local note = get_sdk_path(t) or ""
-        if #note > 44 then
-            note = "..." .. note:sub(-41)
+        if #note > 43 then
+            note = "..." .. note:sub(-40)
         end
-        local note_padded = string.format("%-44s", note)
-        cprint("${bright magenta}║ ${bright cyan}" .. key_padded .. " " .. status_str .. "  ${yellow}" .. tc_str .. " ${dim}" .. note_padded .. " ${bright magenta}║")
+        local note_padded = string.format("%-43s", note)
+        cprint("${bright magenta}║ ${bright cyan}" .. key_padded .. " " .. status_str .. " ${yellow}" .. tc_str .. " ${dim}" .. note_padded .. " ${bright magenta}║")
     end
     cprint("${bright magenta}╚══════════════════════════════════════════════════════════════════════════════╝${clear}")
 

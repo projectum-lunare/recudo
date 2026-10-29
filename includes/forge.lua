@@ -1,8 +1,20 @@
 -- Projectum Lunare Forge - Unified Build, Toolchain & Cross-Compilation Addon
 -- Automatically exports platforms, rules, toolchains, modules and canonical architectures
 
--- 1. Register canonical default architectures for vintage & embedded platforms
-set_defaultarchs("amiga|m68k", "atari|m68k", "kolibri|i386", "dos|i386", "os2|i386", "wince|arm")
+-- 1. Register canonical default architectures for vintage & BSD platforms
+set_defaultarchs(
+    "amiga|m68k",
+    "atari|m68k",
+    "kolibri|i386",
+    "dos|i386",
+    "os2|i386",
+    "wince|arm",
+    "freebsd|x86_64",
+    "openbsd|x86_64",
+    "netbsd|x86_64",
+    "dragonflybsd|x86_64",
+    "dragonfly|x86_64"
+)
 
 -- 2. Resolve forge addon root directory
 local rootdir = path.directory(os.scriptdir())

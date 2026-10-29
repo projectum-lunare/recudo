@@ -14,8 +14,8 @@
 
 Instead of reinventing low-level DAG build graphs from scratch, Forge integrates natively into [Xmake](https://xmake.io) as a modular addon, providing:
 
-- **Formal Custom Platforms:** First-class declarations for `amiga`, `atari`, `kolibri`, `dos`, `os2`, and `wince`.
-- **Automatic Default Architectures:** Automatic mappings (`amiga|m68k`, `atari|m68k`, `kolibri|i386`, `dos|i386`, `os2|i386`, `wince|arm`).
+- **Formal Custom Platforms:** First-class declarations for vintage systems (`amiga`, `atari`, `kolibri`, `dos`, `os2`, `wince`) and distinct modern BSD platforms (`freebsd`, `openbsd`, `netbsd`, `dragonflybsd`).
+- **Automatic Default Architectures:** Automatic mappings (`amiga|m68k`, `atari|m68k`, `kolibri|i386`, `dos|i386`, `os2|i386`, `wince|arm`, `freebsd|x86_64`, `openbsd|x86_64`, `netbsd|x86_64`, `dragonflybsd|x86_64`).
 - **Native Compiler Rules:** Direct execution of non-standard toolchains (`Open Watcom` v2 for DOS/OS2 via `owcc`/`wlib`, `Microsoft eVC 3.0` via `wibo`) using native Xmake batch commands without brittle shell/Python wrapper scripts.
 - **Cross-Platform SDK Detection:** Automatic resolution across Unix (`~/.local/opt/<sdk>`) and Windows (`%APPDATA%`, `%LOCALAPPDATA%`).
 - **First-Class Lua Subsystem (LuaRocks Alternative):** Native project management for pure Lua libraries, native C extensions (`.so`/`.dll` and static retro archives), portable executable launchers, monolithic single-binary bundlers, and zero-friction isolated environments (`LUA_PATH`/`LUA_CPATH`).
@@ -25,15 +25,39 @@ Instead of reinventing low-level DAG build graphs from scratch, Forge integrates
 
 ## Supported Platforms & Toolchains
 
-| Platform      | Target OS           | Default Arch         | Toolchain   | Toolset / Compiler                              | SDK Fallback                 |
-| :------------ | :------------------ | :------------------- | :---------- | :---------------------------------------------- | :--------------------------- |
-| **`amiga`**   | AmigaOS Classic     | `m68k`               | `amigaos`   | Bebbo GCC (`m68k-amigaos-gcc`)                  | `~/.local/opt/amigaos-sdk`   |
-| **`atari`**   | Atari ST / FreeMiNT | `m68k`               | `atarist`   | FreeMiNT GCC (`m68k-atari-mint-gcc`)            | `~/.local/opt/atarist-sdk`   |
-| **`kolibri`** | KolibriOS           | `i386`               | `kolibrios` | KolibriOS GCC (`kos32-gcc`)                     | `~/.local/opt/kolibrios-sdk` |
-| **`dos`**     | MS-DOS 32-bit       | `i386`               | `watcom`    | Open Watcom v2 (`owcc -b dos32a`)               | `~/.local/opt/watcom`        |
-| **`os2`**     | OS/2 32-bit Warp    | `i386`               | `watcom`    | Open Watcom v2 (`owcc -b os2v2`)                | `~/.local/opt/watcom`        |
-| **`wince`**   | Windows CE 3.0      | `arm` (sh3/sh4/mips) | `evc3`      | MS eVC 3.0 (`clarm.exe`, `shcl.exe` via `wibo`) | `~/.local/opt/evc3`          |
-| **`linux`**   | Linux / POSIX Host  | `x86_64`             | `host`      | System Clang / GCC                              | Host Native                  |
+| Platform            | Target OS           | Default Arch         | Supported Architectures (Xmake Normalized)                                                                         | Toolchain   | Toolset / Compiler                              | SDK Fallback                 |
+| :------------------ | :------------------ | :------------------- | :----------------------------------------------------------------------------------------------------------------- | :---------- | :---------------------------------------------- | :--------------------------- |
+| **`amiga`**         | AmigaOS Classic     | `m68k`               | `m68k`                                                                                                             | `amigaos`   | Bebbo GCC (`m68k-amigaos-gcc`)                  | `~/.local/opt/amigaos-sdk`   |
+| **`atari`**         | Atari ST / FreeMiNT | `m68k`               | `m68k`                                                                                                             | `atarist`   | FreeMiNT GCC (`m68k-atari-mint-gcc`)            | `~/.local/opt/atarist-sdk`   |
+| **`kolibri`**       | KolibriOS           | `i386`               | `i386`                                                                                                             | `kolibrios` | KolibriOS GCC (`kos32-gcc`)                     | `~/.local/opt/kolibrios-sdk` |
+| **`dos`**           | MS-DOS 32-bit       | `i386`               | `i386`                                                                                                             | `watcom`    | Open Watcom v2 (`owcc -b dos32a`)               | `~/.local/opt/watcom`        |
+| **`os2`**           | OS/2 32-bit Warp    | `i386`               | `i386`                                                                                                             | `watcom`    | Open Watcom v2 (`owcc -b os2v2`)                | `~/.local/opt/watcom`        |
+| **`wince`**         | Windows CE 3.0      | `arm`                | `arm`, `mips`, `ppc`, `sh3`, `sh4`, `x86`                                                                          | `evc3`      | MS eVC 3.0 (`clarm.exe`, `shcl.exe` via `wibo`) | `~/.local/opt/evc3`          |
+| **`freebsd`**       | FreeBSD             | `x86_64`             | `x86_64`, `i386`, `arm64`, `armv7`, `ppc`, `ppc64`, `ppc64le`, `ppcspe`, `riscv64`                                | `clang/gcc` | System / LLVM Clang, GCC                        | Host Native / Cross-Tools    |
+| **`openbsd`**       | OpenBSD             | `x86_64`             | `x86_64`, `i386`, `arm64`, `armv7`, `alpha`, `hppa`, `m88k`, `mips64`, `ppc`, `ppc64`, `riscv64`, `sh4`, `sparc64`| `clang/gcc` | System / LLVM Clang, GCC                        | Host Native / Cross-Tools    |
+| **`netbsd`**        | NetBSD              | `x86_64`             | `x86_64`, `i386`, `arm`, `arm64`, `alpha`, `hppa`, `ia64`, `m68k`, `m68010`, `mips`, `mips64`, `mipseb`, `mipsel`, `ppc`, `ppc64`, `riscv32`, `riscv64`, `sh3`, `sh3eb`, `sh3el`, `sparc`, `sparc64`, `vax` | `gcc/clang` | System GCC, LLVM Clang                          | Host Native / Cross-Tools    |
+| **`dragonflybsd`**  | DragonFly BSD       | `x86_64`             | `x86_64`                                                                                                           | `gcc/clang` | System GCC, LLVM Clang                          | Host Native / Cross-Tools    |
+| **`linux`**         | Linux / POSIX Host  | `x86_64`             | `x86_64`, `i386`, `arm64`, `armv7`, `riscv64`, `ppc64le`, etc.                                                     | `host`      | System Clang / GCC                              | Host Native                  |
+
+### First-Class BSD Platforms & Architecture Normalization
+
+Standard Xmake merges all BSD distributions into a single generic `bsd` platform. Forge separates them into first-class targets (`freebsd`, `openbsd`, `netbsd`, and `dragonflybsd`) while normalizing official upstream architecture names into canonical Xmake identifiers:
+
+- **FreeBSD** ([Official Releases](https://www.freebsd.org/where/)):
+  - `amd64` &rarr; `x86_64` | `i386` &rarr; `i386` | `aarch64` &rarr; `arm64` | `armv7` &rarr; `armv7`
+  - `powerpc` &rarr; `ppc` | `powerpc64` &rarr; `ppc64` | `powerpc64le` &rarr; `ppc64le` | `powerpcspe` &rarr; `ppcspe` | `riscv64` &rarr; `riscv64`
+- **OpenBSD** ([Official FAQ #4 Platforms](https://www.openbsd.org/faq/faq4.html#Download)):
+  - `alpha` &rarr; `alpha` | `amd64` &rarr; `x86_64` | `arm64` &rarr; `arm64` | `armv7` &rarr; `armv7` | `hppa` &rarr; `hppa` | `i386` &rarr; `i386`
+  - `landisk` (SuperH SH4) &rarr; `sh4` | `luna88k` (Motorola 88k) &rarr; `m88k` | `macppc` (PowerPC 32) &rarr; `ppc`
+  - `octeon` (MIPS64) &rarr; `mips64` | `powerpc64` &rarr; `ppc64` | `riscv64` &rarr; `riscv64` | `sparc64` &rarr; `sparc64`
+- **DragonFly BSD** ([Official Releases](https://www.dragonflybsd.org/download/)):
+  - Pure 64-bit x86 &rarr; `x86_64` (alias `dragonfly` also supported)
+- **NetBSD** ([Official Ports Wiki](https://wiki.netbsd.org/ports/)):
+  - `amd64` &rarr; `x86_64` | `i386` &rarr; `i386` | `aarch64` &rarr; `arm64` | `arm` &rarr; `arm`
+  - `mips` &rarr; `mips`, `mips64`, `mipseb`, `mipsel` | `powerpc` &rarr; `ppc`, `ppc64`
+  - `alpha` &rarr; `alpha` | `m68k` &rarr; `m68k` | `m68010` &rarr; `m68010` | `itanium` &rarr; `ia64`
+  - `riscv` &rarr; `riscv32`, `riscv64` | `sparc` &rarr; `sparc`, `sparc64` | `vax` &rarr; `vax` | `hppa` &rarr; `hppa`
+  - `sh3 (sh3eb / sh3el)` &rarr; `sh3`, `sh3eb`, `sh3el`
 
 ---
 
