@@ -135,3 +135,37 @@ function write_dotenv(projdir, output_file)
     }
     io.writefile(output_file, table.concat(lines, "\n"))
 end
+
+-- Stage Lua source files into build/lua
+function stage_lua_sourcefiles(target, sourcefiles)
+    local projdir = os.projectdir()
+    local staging_dir = path.join(projdir, "build/lua")
+
+    for _, srcfile in ipairs(table.wrap(sourcefiles)) do
+        if srcfile:endswith(".lua") then
+            local relpath = nil
+            local rootdir = target:extraconf("files", srcfile, "rootdir") or target:values("forge.lua.rootdir")
+            if rootdir then
+                relpath = path.relative(srcfile, rootdir)
+            else
+                local norm = path.normalize(srcfile)
+                if norm:startswith("src/") then
+                    relpath = norm:sub(5)
+                elseif norm:startswith("lua/") then
+                    relpath = norm:sub(5)
+                elseif norm:startswith("lib/") then
+                    relpath = norm:sub(5)
+                else
+                    relpath = norm
+                end
+            end
+
+            local dstfile = path.join(staging_dir, relpath)
+            if not os.isfile(dstfile) or os.mtime(srcfile) > os.mtime(dstfile) then
+                os.mkdir(path.directory(dstfile))
+                os.cp(srcfile, dstfile)
+                cprint("${dim}[forge] Staged %s -> %s${clear}", path.relative(srcfile, projdir), relpath)
+            end
+        end
+    end
+end

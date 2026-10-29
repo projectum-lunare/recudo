@@ -14,9 +14,21 @@ local DEFAULT_BUNDLE_TEMPLATE = [[
 #ifdef __cplusplus
 extern "C" {
 #endif
-#include <lua.h>
-#include <lauxlib.h>
-#include <lualib.h>
+#if defined(__has_include)
+#  if __has_include(<lua/lua.h>)
+#    include <lua/lua.h>
+#    include <lua/lauxlib.h>
+#    include <lua/lualib.h>
+#  else
+#    include <lua.h>
+#    include <lauxlib.h>
+#    include <lualib.h>
+#  endif
+#else
+#  include <lua/lua.h>
+#  include <lua/lauxlib.h>
+#  include <lua/lualib.h>
+#endif
 #ifdef __cplusplus
 }
 #endif
