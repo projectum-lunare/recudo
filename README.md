@@ -24,15 +24,15 @@ Instead of reinventing low-level DAG build graphs from scratch, Forge integrates
 
 ## Supported Platforms & Toolchains
 
-| Platform | Target OS | Default Arch | Toolchain | Toolset / Compiler | SDK Fallback |
-| :--- | :--- | :--- | :--- | :--- | :--- |
-| **`amiga`** | AmigaOS Classic | `m68k` | `amigaos` | Bebbo GCC (`m68k-amigaos-gcc`) | `~/.local/opt/amigaos-sdk` |
-| **`atari`** | Atari ST / FreeMiNT | `m68k` | `atarist` | FreeMiNT GCC (`m68k-atari-mint-gcc`) | `~/.local/opt/atarist-sdk` |
-| **`kolibri`**| KolibriOS | `i386` | `kolibrios`| KolibriOS GCC (`kos32-gcc`) | `~/.local/opt/kolibrios-sdk` |
-| **`dos`** | MS-DOS 32-bit | `i386` | `watcom` | Open Watcom v2 (`owcc -b dos32a`) | `~/.local/opt/watcom` |
-| **`os2`** | OS/2 32-bit Warp | `i386` | `watcom` | Open Watcom v2 (`owcc -b os2v2`) | `~/.local/opt/watcom` |
-| **`wince`** | Windows CE 3.0 | `arm` (sh3/sh4/mips) | `evc3` | MS eVC 3.0 (`clarm.exe`, `shcl.exe` via `wibo`) | `~/.local/opt/evc3` |
-| **`linux`** | Linux / POSIX Host | `x86_64` | `host` | System Clang / GCC | Host Native |
+| Platform      | Target OS           | Default Arch         | Toolchain   | Toolset / Compiler                              | SDK Fallback                 |
+| :------------ | :------------------ | :------------------- | :---------- | :---------------------------------------------- | :--------------------------- |
+| **`amiga`**   | AmigaOS Classic     | `m68k`               | `amigaos`   | Bebbo GCC (`m68k-amigaos-gcc`)                  | `~/.local/opt/amigaos-sdk`   |
+| **`atari`**   | Atari ST / FreeMiNT | `m68k`               | `atarist`   | FreeMiNT GCC (`m68k-atari-mint-gcc`)            | `~/.local/opt/atarist-sdk`   |
+| **`kolibri`** | KolibriOS           | `i386`               | `kolibrios` | KolibriOS GCC (`kos32-gcc`)                     | `~/.local/opt/kolibrios-sdk` |
+| **`dos`**     | MS-DOS 32-bit       | `i386`               | `watcom`    | Open Watcom v2 (`owcc -b dos32a`)               | `~/.local/opt/watcom`        |
+| **`os2`**     | OS/2 32-bit Warp    | `i386`               | `watcom`    | Open Watcom v2 (`owcc -b os2v2`)                | `~/.local/opt/watcom`        |
+| **`wince`**   | Windows CE 3.0      | `arm` (sh3/sh4/mips) | `evc3`      | MS eVC 3.0 (`clarm.exe`, `shcl.exe` via `wibo`) | `~/.local/opt/evc3`          |
+| **`linux`**   | Linux / POSIX Host  | `x86_64`             | `host`      | System Clang / GCC                              | Host Native                  |
 
 ---
 
@@ -52,18 +52,6 @@ Declare Forge as a project addon dependency:
 add_addons("forge")
 includes("@addon/forge/forge.lua")
 ```
-
-> **Note:** For offline or monorepo development, vendoring Forge as a git submodule (`vendor/forge`) or sibling directory (`../forge`) is also supported:
-> ```lua
-> if os.isdir("vendor/forge") then
->     includes("vendor/forge")
-> elseif os.isdir("../forge") then
->     includes("../forge")
-> else
->     add_addons("forge")
->     includes("@addon/forge/forge.lua")
-> end
-> ```
 
 ---
 
