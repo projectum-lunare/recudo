@@ -18,4 +18,4 @@ platform("openbsd")
 
     set_installdir("/usr/local")
 
-    set_toolchains("envs", "clang", "gcc", "yasm", "nasm", "fasm", "go", "rust", "gfortran", "zig", "dotnet")
+    set_toolchains("openbsd")

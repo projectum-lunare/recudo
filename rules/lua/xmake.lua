@@ -123,11 +123,12 @@ local function setup_module_rule(rule_name)
         end)
 
         after_install(function (target)
-            local staging_dir = path.join(os.projectdir(), "build/lua")
-            if os.isdir(staging_dir) then
-                local luafiles = os.files(path.join(staging_dir, "**.lua"))
-                for _, f in ipairs(luafiles) do
-                    local rel = path.relative(f, staging_dir)
+            import("lua.env")
+
+            -- Install only Lua files belonging to this target
+            for _, f in ipairs(table.wrap(target:sourcefiles())) do
+                if f:endswith(".lua") then
+                    local rel = env.get_relative_path(target, f)
                     -- Canonical installation: share/lua/
                     local dst1 = path.join(target:installdir(), "share/lua", rel)
                     os.mkdir(path.directory(dst1))
@@ -138,8 +139,8 @@ local function setup_module_rule(rule_name)
                     os.mkdir(path.directory(dst2))
                     os.cp(f, dst2)
 
-                    -- Namespaced mirror (e.g. lpeg/re.lua)
-                    local parent = target:data("forge.lua.parent_module") or (target:name() == "re" and "lpeg" or nil)
+                    -- Namespaced mirror if parent_module is explicitly configured
+                    local parent = target:values("forge.lua.parent_module") or target:data("forge.lua.parent_module")
                     if parent then
                         local dst_sub1 = path.join(target:installdir(), "share/lua", parent, rel)
                         os.mkdir(path.directory(dst_sub1))
@@ -295,61 +296,84 @@ setup_app_rule("vintage.lua.app")
 -- 4. Rule: forge.lua.bundle
 -- Monolithic standalone C89 binary bundling Lua runtime and byte arrays.
 -- ==============================================================================
-rule("forge.lua.bundle")
-    add_deps("c")
-    set_extensions(".lua")
+local function setup_bundle_rule(rule_name)
+    rule(rule_name)
+        add_deps("c")
+        set_extensions(".lua")
 
-    on_load(function (target)
-        target:set("kind", "binary")
-        target:values_set("forge.lua.bundle", true)
+        on_load(function (target)
+            target:set("kind", "binary")
+            target:values_set("forge.lua.bundle", true)
 
-        local has_lua = false
-        for _, pkg in ipairs(table.wrap(target:get("packages"))) do
-            if pkg == "lua" or pkg == "luajit" then
-                has_lua = true
-                break
+            local has_lua = false
+            for _, pkg in ipairs(table.wrap(target:get("packages"))) do
+                if pkg == "lua" or pkg == "luajit" then
+                    has_lua = true
+                    break
+                end
             end
-        end
-        if not has_lua then
-            target:add("packages", "lua")
-        end
-        target:add("defines", "LUA_COMPAT_5_3")
-        target:add("links", "m")
-    end)
+            if not has_lua then
+                target:add("packages", "lua")
+            end
+            target:add("defines", "LUA_COMPAT_5_3")
 
-    before_buildcmd_files(function (target, batchcmds, sourcebatch, opt)
-        import("lua.bundler")
+            -- Math library (-lm) is only required/present on POSIX/Unix systems
+            -- Do not link 'm' on DOS (Watcom), OS/2 (Watcom), Windows CE (eVC3), or native Windows
+            if not target:is_plat("dos", "os2", "wince", "windows") then
+                target:add("links", "m")
+            end
+        end)
 
-        local luafiles = sourcebatch.sourcefiles
-        local entry = target:values("forge.lua.entry") or "main"
-        local entry_mod = path.filename(entry):gsub("%.lua$", "")
-        local bundle_c = path.join(target:autogendir(), "bundle.c")
+        before_buildcmd_files(function (target, batchcmds, sourcebatch, opt)
+            import("lua.bundler")
+            import("lua.env")
 
-        local tmpl_file = target:values("forge.lua.template")
-        if tmpl_file and not path.is_absolute(tmpl_file) then
-            tmpl_file = path.join(os.projectdir(), tmpl_file)
-        end
+            local luafiles = sourcebatch.sourcefiles
+            local file_map, module_map = env.get_file_map(target, luafiles)
 
-        local code = bundler.generate_bundle_source(luafiles, {
-            projdir = os.projectdir(),
-            entry_module = entry_mod,
-            include_main = true,
-            template_file = tmpl_file
-        })
+            -- Resolve entrypoint module name accurately preserving hierarchy
+            local entry = target:values("forge.lua.entry") or target:values("forge.lua.main") or "main"
+            local entry_mod
+            if entry:endswith(".lua") or entry:find("[/\\]") then
+                local entry_rel = env.get_relative_path(target, entry)
+                entry_mod = env.get_module_name(entry_rel)
+            else
+                entry_mod = entry
+            end
 
-        io.writefile(bundle_c, code)
+            local bundle_c = path.join(target:autogendir(), "bundle.c")
 
-        local objfile = target:objectfile(bundle_c)
-        table.insert(target:objectfiles(), objfile)
+            local tmpl_file = target:values("forge.lua.template")
+            if tmpl_file and not path.is_absolute(tmpl_file) then
+                tmpl_file = path.join(os.projectdir(), tmpl_file)
+            end
 
-        batchcmds:mkdir(path.directory(bundle_c))
-        batchcmds:mkdir(path.directory(objfile))
-        batchcmds:show_progress(opt.progress, "${color.build.target}compiling.bundle %s", path.relative(bundle_c, os.projectdir()))
-        batchcmds:compile(bundle_c, objfile)
-        batchcmds:add_depfiles(luafiles)
-        if tmpl_file and os.isfile(tmpl_file) then
-            batchcmds:add_depfiles(tmpl_file)
-        end
-        batchcmds:set_depmtime(os.mtime(objfile))
-        batchcmds:set_depcache(target:dependfile(objfile))
-    end)
+            local code = bundler.generate_bundle_source(luafiles, {
+                projdir = os.projectdir(),
+                file_map = file_map,
+                module_map = module_map,
+                entry_module = entry_mod,
+                include_main = true,
+                template_file = tmpl_file
+            })
+
+            io.writefile(bundle_c, code)
+
+            local objfile = target:objectfile(bundle_c)
+            table.insert(target:objectfiles(), objfile)
+
+            batchcmds:mkdir(path.directory(bundle_c))
+            batchcmds:mkdir(path.directory(objfile))
+            batchcmds:show_progress(opt.progress, "${color.build.target}compiling.bundle %s", path.relative(bundle_c, os.projectdir()))
+            batchcmds:compile(bundle_c, objfile)
+            batchcmds:add_depfiles(luafiles)
+            if tmpl_file and os.isfile(tmpl_file) then
+                batchcmds:add_depfiles(tmpl_file)
+            end
+            batchcmds:set_depmtime(os.mtime(objfile))
+            batchcmds:set_depcache(target:dependfile(objfile))
+        end)
+end
+
+setup_bundle_rule("forge.lua.bundle")
+setup_bundle_rule("vintage.lua.bundle")
