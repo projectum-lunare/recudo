@@ -28,5 +28,22 @@ function main(T)
         end
     })
 
+    table.insert(tests, {
+        name = "generate_bundle_source preloads native luaopen symbols",
+        func = function ()
+            local temp_lua = path.join(os.tmpdir(), "forge_test_mod.lua")
+            io.writefile(temp_lua, "return true\n")
+            local c_code = bundler.generate_bundle_source({temp_lua}, {
+                entry_module = "main",
+                native_modules = {{name = "forge.native", symbol = "luaopen_forge_native"}},
+                cpath = "/opt/forge/?.so"
+            })
+            os.rm(temp_lua)
+            T.assert_true(c_code:find("extern int luaopen_forge_native%(lua_State %*L%)") ~= nil, "Should declare luaopen")
+            T.assert_true(c_code:find('lua_setfield%(L, %-2, "forge%.native"%)') ~= nil, "Should preload forge.native")
+            T.assert_true(c_code:find('/opt/forge/%?%.so') ~= nil, "Should embed cpath")
+        end
+    })
+
     return tests
 end

@@ -2,6 +2,16 @@
 -- Rule: Open Watcom v2 C Compiler, Linker & Archiver (DOS 32-bit & OS/2 Warp)
 -- Native Xmake batchcmds execution (no external shell/python wrappers)
 
+local function append_flags(argv, flags)
+    for _, flag in ipairs(table.wrap(flags)) do
+        -- package.tools.xmake injects -fPIC for non-Windows packages.
+        -- Open Watcom does not use position-independent code.
+        if flag ~= "-fPIC" and flag ~= "-fpic" and flag ~= "-fPIE" and flag ~= "-fpie" then
+            table.insert(argv, flag)
+        end
+    end
+end
+
 local function get_target_objectfiles(target)
     local objs = {}
     local raw_objs = target:objectfiles()
@@ -114,17 +124,11 @@ local function setup_watcom_rule(rule_name)
             end
 
             -- Custom compiler flags
-            for _, flag in ipairs(table.wrap(target:get("cxflags"))) do
-                table.insert(argv, flag)
-            end
+            append_flags(argv, target:get("cxflags"))
             if is_cxx then
-                for _, flag in ipairs(table.wrap(target:get("cxxflags"))) do
-                    table.insert(argv, flag)
-                end
+                append_flags(argv, target:get("cxxflags"))
             else
-                for _, flag in ipairs(table.wrap(target:get("cflags"))) do
-                    table.insert(argv, flag)
-                end
+                append_flags(argv, target:get("cflags"))
             end
 
             -- Header dependency tracking via -MMD -MF
