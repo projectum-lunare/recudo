@@ -16,15 +16,18 @@ set_defaultarchs(
     "dragonfly|x86_64"
 )
 
--- 2. Resolve forge addon root directory
-local rootdir = path.directory(os.scriptdir())
+-- 2. Resolve forge addon root directory.
+-- A recipe build includes this file, so scriptdir is the addon includes
+-- directory. FORGE_LUA_ROOT covers a run where the text is prepended to the
+-- recipe and scriptdir would otherwise be the recipe directory.
+local rootdir = getenv("FORGE_LUA_ROOT")
+if not rootdir or rootdir == "" then
+    rootdir = path.directory(os.scriptdir())
+end
 
 -- 3. Register platform definitions, addon modules and the local Lua package repository
 add_platformdirs(path.join(rootdir, "platforms"))
 add_moduledirs(path.join(rootdir, "modules"))
-if os.isdir(path.join(rootdir, "repository")) then
-    add_repositories("forge-lua repository", {rootdir = rootdir})
-end
 
 -- One link mode for the whole graph. `xmake f --kind=shared` builds shared
 -- libraries. `xmake f --kind=static` (the default) builds archives. Platforms
@@ -43,4 +46,60 @@ add_requireconfs("**", {override = true, configs = {shared = link_shared}})
 includes(path.join(rootdir, "rules/**/xmake.lua"))
 includes(path.join(rootdir, "toolchains/*.lua"))
 includes(path.join(rootdir, "plugins/*/xmake.lua"))
+
+-- Packages are installed before target on_load, so the repository has to be
+-- registered while the project script is still loading. on_load refreshes it
+-- for the next configure.
+if getenv("FORGE_LUA_PROJECT") ~= "1" and os.isdir(path.join(rootdir, "repository", "repo")) then
+    add_repositories("forge-lua repository/repo", {rootdir = rootdir})
+end
+
+if getenv("FORGE_LUA_PROJECT") ~= "1" then
+    target("__forge_lua_repo")
+        set_kind("phony")
+        set_default(false)
+        on_load(function ()
+            local repodir = import("lua.repo").publish()
+            if repodir then
+                import("core.package.repository").add("forge-lua", repodir)
+                import("core.package.repository").load("forge-lua", repodir)
+            end
+        end)
+end
+
+-- The recipe is an ordinary xmake project. Its package metadata is ignored here.
+-- Inside a rule or toolchain the real interface stays in place. At the root,
+-- add_deps("lua") is the package dependency.
+if getenv("FORGE_LUA_PROJECT") == "1" then
+    function set_homepage() end
+    function set_description() end
+    function set_license() end
+
+    local set_kind_shim
+    set_kind_shim = function (kind, opt)
+        if interp_get_scopekind() == nil then
+            return
+        end
+        set_kind = nil
+        local real = set_kind
+        set_kind = set_kind_shim
+        real(kind, opt)
+    end
+    set_kind = set_kind_shim
+
+    local add_deps_shim
+    add_deps_shim = function (name, opt)
+        if interp_get_scopekind() == nil then
+            if type(name) == "string" then
+                add_requires(name)
+            end
+            return
+        end
+        add_deps = nil
+        local real = add_deps
+        add_deps = add_deps_shim
+        real(name, opt)
+    end
+    add_deps = add_deps_shim
+end
 

@@ -110,8 +110,8 @@ local function append_package_patterns(items, roots, kind)
     if not roots or #roots == 0 then
         return
     end
-    local lua_package = import("lua.package", {alias = "lua_package"})
-    for _, pattern in ipairs(lua_package.search_patterns(roots, kind)) do
+    local lua_module = import("lua.module", {anonymous = true})
+    for _, pattern in ipairs(lua_module.search_patterns(roots, kind)) do
         table.insert(items, pattern)
     end
 end
@@ -150,7 +150,7 @@ function private_lua(target)
     if not target or not target.orderpkgs then
         return nil
     end
-    local lua_package = import("lua.package", {alias = "lua_package"})
+    local lua_module = import("lua.module", {anonymous = true})
     local function from_pkg(pkg)
         if not pkg or not pkg.installdir then
             return nil
@@ -158,7 +158,7 @@ function private_lua(target)
         if is_lua_pkg(pkg) then
             return program_in(pkg)
         end
-        local runtime = lua_package.load_runtime(pkg:installdir({readonly = true}))
+        local runtime = lua_module.load_runtime(pkg:installdir({readonly = true}))
         if runtime then
             return program_in_dir(runtime.installdir)
         end
@@ -176,6 +176,15 @@ function private_lua(target)
         local found = from_pkg(pkg)
         if found then
             return found
+        end
+    end
+    for _, root in ipairs(lua_module.roots_of(target)) do
+        local runtime = lua_module.load_runtime(root)
+        if runtime then
+            local prog = program_in_dir(runtime.installdir)
+            if prog then
+                return prog
+            end
         end
     end
     return nil
@@ -240,11 +249,11 @@ function stage_sandbox(target, destdir, roots)
         end
     end
 
-    local lua_package = import("lua.package", {alias = "lua_package"})
+    local lua_module = import("lua.module", {anonymous = true})
     local luavers = {}
     local cexts = {}
     for _, root in ipairs(roots or {}) do
-        local manifest = lua_package.load_manifest(root)
+        local manifest = lua_module.load_manifest(root)
         if manifest then
             if manifest.luaver then
                 luavers[manifest.luaver] = true
@@ -343,7 +352,7 @@ function get_lua_paths(projdir, ver, opt)
         table.insert(paths, path.join(projdir, "lua_modules/share/lua/5.4/?/init.lua"))
     end
 
-    -- 4. xmake packages installed by lua.package
+    -- 4. xmake packages installed by lua.module
     append_package_patterns(paths, opt.package_roots, "path")
 
     -- 5. A sandbox keeps only the project and its packages. `;;` would reopen the system path.
@@ -398,7 +407,7 @@ function get_lua_cpaths(projdir, ver, opt)
         table.insert(cpaths, path.join(projdir, "lua_modules/lib/lua/5.4/?/?." .. ext))
     end
 
-    -- 3. xmake packages installed by lua.package
+    -- 3. xmake packages installed by lua.module
     append_package_patterns(cpaths, opt.package_roots, "cpath")
 
     -- 4. A sandbox keeps only the project and its packages. `;;` would reopen the system path.

@@ -174,7 +174,7 @@ xmake forge env --export-env
 
 ### 6. Lua modules as xmake packages
 
-Forge treats a Lua module as an xmake package. There is no rockspec. Including Forge registers the local repository `forge-lua` (`repository/`). A recipe lists its modules and calls `lua.package.install`. `require` finds them through `LUA_PATH` and `LUA_CPATH`.
+Forge treats a Lua module as an xmake package. There is no rockspec. Including Forge registers the local repository `forge-lua`. A recipe in `repository/packages` is an ordinary xmake project: metadata, then a `target` with `forge.lua.module`. `require` finds it through `LUA_PATH` and `LUA_CPATH`.
 
 #### Pure Lua (`.lua` only)
 
@@ -190,25 +190,20 @@ target("app")
     add_packages("forge-hello")
 ```
 
-The matching recipe copies each file into `share/lua/<version>/` and publishes nothing for the linker. `set_kind("library", {headeronly = true})` and `on_fetch` tell xmake that the package has no C library:
+`repository/packages/f/forge-hello/xmake.lua` is the recipe:
 
 ```lua
-package("my-mod")
-    set_kind("library", {headeronly = true})
-    set_sourcedir(path.join(os.scriptdir(), "src"))
+set_kind("library", {headeronly = true})
+set_homepage("https://github.com/projectum-lunare/forge")
+set_description("Example pure Lua module installed by Forge")
+set_license("MPL-2.0")
 
-    on_install(function (package)
-        import("lua.package", {alias = "lua_package"}).install(package, {
-            modules = {
-                ["my.mod"] = "mod.lua"
-            }
-        })
-    end)
-
-    on_fetch(function (package, opt)
-        return import("lua.package", {alias = "lua_package"}).fetch(package, opt)
-    end)
+target("forge.hello")
+    add_rules("forge.lua.module")
+    add_files("src/hello.lua")
 ```
+
+`forge.lua.module` installs the file where `require` looks. `set_kind("library", {headeronly = true})` tells xmake there is no C library. A C module adds `add_deps("lua")` and lists its `.c` file on the target. A tarball that has no xmake project, such as LPeg, is the case that receives a generated `xmake.lua` at install time.
 
 `forge.lua.bundle` is the step that leaves pure Lua: it generates a C executable, so that target needs the `lua` package even when every script is `.lua`.
 
@@ -252,7 +247,7 @@ target("app")
     add_packages("lua", "forge-hello", "forge-native")
 ```
 
-`forge-hello` and `forge-native` in `repository/` are the reference recipes. `forge-native` points at `src/native.c`. A new recipe lives at `packages/<initial>/<name>/xmake.lua`. A string that ends in `.c` or `.lua`, or names a file on disk, is a path. Any other string is the source text: Forge writes it to a temporary file and compiles or installs that file. Another recipe tree is registered with `add_repositories("my-lua /path/to/repo")`.
+`repository/packages/f/forge-hello` and `forge-native` are the reference recipes. LPeg has no xmake project, so its recipe writes one at install time. A new recipe lives at `packages/<initial>/<name>/xmake.lua`. Another recipe tree is registered with `add_repositories("my-lua /path/to/repo")`.
 
 ---
 

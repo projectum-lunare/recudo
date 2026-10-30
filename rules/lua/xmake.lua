@@ -28,11 +28,11 @@ local function sandbox_patterns(staged, root, kind)
     return table.concat(parts, ";")
 end
 
-local function package_search(lua_package, target)
-    local roots = lua_package.roots_of(target)
+local function package_search(lua_module, target)
+    local roots = lua_module.roots_of(target)
     return roots,
-        table.concat(lua_package.search_patterns(roots, "path"), ";"),
-        table.concat(lua_package.search_patterns(roots, "cpath"), ";")
+        table.concat(lua_module.search_patterns(roots, "path"), ";"),
+        table.concat(lua_module.search_patterns(roots, "cpath"), ";")
 end
 
 -- ==============================================================================
@@ -61,7 +61,7 @@ local function setup_module_rule(rule_name)
 
                 -- Project --kind selects static or shared. Platforms that cannot
                 -- dlopen stay static. An explicit forge.lua.kind can narrow one target.
-                import("lua.package", {alias = "lua_package"})
+                local lua_module = import("lua.module", {anonymous = true})
                 import("core.project.config")
                 local marked_shared = config.get("kind") == "shared"
                 local user_kind = target:values("forge.lua.kind")
@@ -70,7 +70,7 @@ local function setup_module_rule(rule_name)
                 elseif user_kind == "shared" then
                     marked_shared = true
                 end
-                local is_static = not lua_package.supports_dynamic(target:plat()) or not marked_shared
+                local is_static = not lua_module.supports_dynamic(target:plat()) or not marked_shared
 
                 if is_static then
                     -- Static archive mode (.a / .lib)
@@ -93,6 +93,9 @@ local function setup_module_rule(rule_name)
                     target:set("basename", leaf)
                     target:set("prefixname", "")
                     target:set("symbols", "none")
+                    if subdirs ~= "" then
+                        target:set("prefixdir", ".", {libdir = path.join("lib", subdirs)})
+                    end
 
                     if target:is_plat("windows", "mingw") then
                         target:set("extension", ".dll")
@@ -116,6 +119,18 @@ local function setup_module_rule(rule_name)
                     target:add("packages", "lua")
                 end
                 target:add("defines", "LUA_COMPAT_5_3")
+                if target:is_plat("wince") then
+                    target:add("rules", "forge.evc3", {override = true})
+                elseif target:is_plat("dos", "os2") then
+                    target:add("rules", "forge.watcom", {override = true})
+                end
+                local vintage = target:is_plat("wince", "dos", "os2", "amiga", "atari", "kolibri", "plan9")
+                if vintage then
+                    target:add("defines", "LUA_USE_C89")
+                end
+                if vintage or target:is_arch("m68k.*", "i386", "x86", "mips.*", "ppc.*", "powerpc", "armv4.*", "armv5.*", "sh.*") then
+                    target:add("defines", "LUA_32BITS")
+                end
             else
                 -- Pure Lua library
                 target:set("kind", "phony")
@@ -155,6 +170,7 @@ local function setup_module_rule(rule_name)
             for _, f in ipairs(table.wrap(target:sourcefiles())) do
                 if f:endswith(".lua") then
                     local rel = env.get_relative_path(target, f)
+                    if not rel:find("..", 1, true) then
                     -- Canonical installation: share/lua/
                     local dst1 = path.join(target:installdir(), "share/lua", rel)
                     os.mkdir(path.directory(dst1))
@@ -176,23 +192,153 @@ local function setup_module_rule(rule_name)
                         os.mkdir(path.directory(dst_sub2))
                         os.cp(f, dst_sub2)
                     end
-                end
-            end
-
-            -- For shared C modules on POSIX, also mirror lib<name>.so for C linkers (-l<name>)
-            if target:data("forge.lua.is_cmodule") and not target:data("forge.lua.is_static") then
-                if not target:is_plat("windows", "mingw") then
-                    local so_file = path.join(target:installdir(), "lib", target:name() .. ".so")
-                    local lib_so = path.join(target:installdir(), "lib", "lib" .. target:name() .. ".so")
-                    if os.isfile(so_file) and not os.isfile(lib_so) then
-                        os.trycp(so_file, lib_so)
                     end
                 end
             end
+
+            local lua_module = import("lua.module", {anonymous = true})
+            local installdir = target:installdir()
+            if not installdir then
+                return
+            end
+            local name = target:name()
+            local ver = "5.4"
+            local lua_pkg = (target.pkg and (target:pkg("lua") or target:pkg("luajit"))) or nil
+            if lua_pkg and lua_pkg.version then
+                local s = tostring(lua_pkg:version()):gsub("^v", "")
+                local major, minor = s:match("^(%d+)%.(%d+)")
+                if major then
+                    ver = major .. "." .. minor
+                end
+            end
+            local record
+            if target:data("forge.lua.is_pure") then
+                local src
+                for _, f in ipairs(table.wrap(target:sourcefiles())) do
+                    if f:endswith(".lua") then
+                        src = f
+                        break
+                    end
+                end
+                if src then
+                    local rel = path.join("share/lua", ver, lua_module.module_lua_relpath(name, path.filename(src)))
+                    rel = rel:gsub("\\", "/")
+                    local dst = path.join(installdir, rel)
+                    os.mkdir(path.directory(dst))
+                    os.cp(src, dst)
+                    record = {name = name, kind = "lua", relpath = rel}
+                end
+            elseif target:data("forge.lua.is_cmodule") then
+                local symbol = "luaopen_" .. name:gsub("[^%w]", "_")
+                local link = name:gsub("[^%w]", "_")
+                record = {name = name, kind = "c", symbol = symbol, link = link}
+                if target:data("forge.lua.is_static") then
+                    local installed = path.join(target:libdir(), path.filename(target:targetfile()))
+                    if os.isfile(installed) then
+                        record.relpath = path.relative(installed, installdir):gsub("\\", "/")
+                    end
+                else
+                    local installed = path.join(target:libdir(), path.filename(target:targetfile()))
+                    local ext = path.extension(installed):gsub("^%.", "")
+                    local rel = path.join("lib/lua", ver, lua_module.module_c_relpath(name, ext)):gsub("\\", "/")
+                    local dst = path.join(installdir, rel)
+                    if os.isfile(installed) then
+                        os.mkdir(path.directory(dst))
+                        os.cp(installed, dst)
+                        if path.normalize(installed) ~= path.normalize(dst) then
+                            os.rm(installed)
+                        end
+                        record.ext = ext
+                        record.shared_relpath = rel
+                        record.relpath = rel
+                    end
+                end
+            end
+            if record then
+                local mdir = path.join(installdir, "share/forge")
+                os.mkdir(mdir)
+                local file = path.join(mdir, "lua-modules.lua")
+                local data = os.isfile(file) and io.load(file) or {luaver = ver, modules = {}}
+                if type(data) ~= "table" then
+                    data = {luaver = ver, modules = {}}
+                end
+                data.luaver = data.luaver or ver
+                data.modules = data.modules or {}
+                local replaced = false
+                for i, mod in ipairs(data.modules) do
+                    if mod.name == record.name then
+                        data.modules[i] = record
+                        replaced = true
+                    end
+                end
+                if not replaced then
+                    table.insert(data.modules, record)
+                end
+                io.save(file, data)
+                if lua_pkg and lua_pkg.installdir then
+                    local root = lua_pkg:installdir()
+                    local shared = lua_pkg.config and lua_pkg:config("shared") == true
+                    if not shared then
+                        shared = os.isfile(path.join(root, "lib", "liblua.so"))
+                            or os.isfile(path.join(root, "lib", "liblua.dylib"))
+                            or os.isfile(path.join(root, "bin", "lua.dll"))
+                    end
+                    io.save(path.join(mdir, "lua-runtime.lua"), {installdir = root, shared = shared})
+                end
+            end
+            local search_ext = target:is_plat("windows", "mingw") and "dll" or "so"
+            lua_module.write_module_search(installdir, search_ext)
         end)
 end
 
 setup_module_rule("forge.lua.module")
+
+-- ==============================================================================
+-- 2. Rule: forge.lua.bin
+-- Install a Lua program into bin/. The script keeps its shebang. Unix marks it
+-- executable. Windows also gets a .cmd launcher that calls lua.
+-- ==============================================================================
+rule("forge.lua.bin")
+    set_extensions(".lua")
+
+    on_load(function (target)
+        target:set("kind", "phony")
+        -- A program such as src/bin/luacov has no extension, so the file rule
+        -- would otherwise reject it as an unknown source.
+        for _, sourcefile in ipairs(table.wrap(target:get("files"))) do
+            target:fileconfig_set(sourcefile, {rules = "forge.lua.bin"})
+        end
+    end)
+
+    after_install(function (target)
+        local installdir = target:installdir()
+        if not installdir then
+            return
+        end
+        local bindir = path.join(installdir, "bin")
+        local root = os.projectdir()
+        local seen = {}
+        for _, sourcefile in ipairs(table.wrap(target:get("files"))) do
+            local src = path.is_absolute(sourcefile) and sourcefile or path.join(root, sourcefile)
+            if os.isfile(src) then
+                local name = path.filename(src)
+                if name:endswith(".lua") then
+                    name = name:sub(1, -5)
+                end
+                if not seen[name] then
+                    seen[name] = true
+                    os.mkdir(bindir)
+                    local dest = path.join(bindir, name)
+                    os.cp(src, dest)
+                    if target:is_plat("windows") then
+                        io.writefile(dest .. ".cmd", "@echo off\r\nlua \"%~dp0\\" .. name .. "\" %*\r\n")
+                    else
+                        try { function () os.runv("chmod", {"+x", dest}) end }
+                    end
+                end
+            end
+        end
+    end)
 
 -- ==============================================================================
 -- 3. Rule: forge.lua.app (alias: forge.lua.binary)
@@ -249,11 +395,11 @@ local function setup_app_rule(rule_name)
             os.mkdir(bindir)
 
             import("lua.env")
-            import("lua.package", {alias = "lua_package"})
+            local lua_module = import("lua.module", {anonymous = true})
             local entry = target:data("forge.lua.entry") or "src/main.lua"
             local app_name = target:name()
-            local roots, pkg_path, pkg_cpath = package_search(lua_package, target)
-            local sandbox = lua_package.has_shared_native(roots)
+            local roots, pkg_path, pkg_cpath = package_search(lua_module, target)
+            local sandbox = lua_module.has_shared_native(roots)
             local lua_bin = env.lua_program(target) or "lua"
             local runtime_name = app_name .. ".runtime"
             local staged = nil
@@ -355,9 +501,9 @@ local function setup_app_rule(rule_name)
                 raise("Lua entrypoint not found: " .. entry)
             end
 
-            import("lua.package", {alias = "lua_package"})
-            local roots = package_search(lua_package, target)
-            local sandbox = lua_package.has_shared_native(roots)
+            local lua_module = import("lua.module", {anonymous = true})
+            local roots = package_search(lua_module, target)
+            local sandbox = lua_module.has_shared_native(roots)
             local args = option.get("arguments") or {}
             if sandbox then
                 local launcher = path.join(os.projectdir(), "build/bin", target:name())
@@ -424,11 +570,15 @@ local function setup_bundle_rule(rule_name)
         end)
 
         on_config(function (target)
-            import("lua.package", {alias = "lua_package"})
-            local natives = lua_package.bundle_sources(lua_package.roots_of(target)).natives
+            local lua_module = import("lua.module", {anonymous = true})
+            local natives = lua_module.bundle_sources(lua_module.roots_of(target)).natives
             for _, native in ipairs(natives) do
                 if native.link then
                     -- The module archive references liblua, so it has to be linked first.
+                    target:add("links", native.link)
+                    if native.linkdir then
+                        target:add("linkdirs", native.linkdir)
+                    end
                     target:add("linkorders", native.link, "lua")
                 end
             end
@@ -438,8 +588,8 @@ local function setup_bundle_rule(rule_name)
             import("lua.bundler")
             import("lua.env")
 
-            import("lua.package", {alias = "lua_package"})
-            local bundled = lua_package.bundle_sources(lua_package.roots_of(target))
+            local lua_module = import("lua.module", {anonymous = true})
+            local bundled = lua_module.bundle_sources(lua_module.roots_of(target))
 
             local luafiles = table.join(sourcebatch.sourcefiles, bundled.files)
             local file_map, module_map = env.get_file_map(target, sourcebatch.sourcefiles)
