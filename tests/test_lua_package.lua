@@ -1,6 +1,6 @@
 -- Unit and integration tests: Lua modules installed from xmake package recipes
 
-import("lua.package", {rootdir = "modules"})
+local lua_module = import("lua.module", {rootdir = "modules", anonymous = true})
 import("lua.env", {rootdir = "modules"})
 import("lua.bundler", {rootdir = "modules"})
 
@@ -23,33 +23,33 @@ function main(T)
     table.insert(tests, {
         name = "open_symbol and link_name sanitize module names",
         func = function ()
-            T.assert_equal(package.open_symbol("forge.native"), "luaopen_forge_native")
-            T.assert_equal(package.open_symbol("socket.core"), "luaopen_socket_core")
-            T.assert_equal(package.link_name("foo-bar.baz"), "foo_bar_baz")
+            T.assert_equal(lua_module.open_symbol("forge.native"), "luaopen_forge_native")
+            T.assert_equal(lua_module.open_symbol("socket.core"), "luaopen_socket_core")
+            T.assert_equal(lua_module.link_name("foo-bar.baz"), "foo_bar_baz")
         end
     })
 
     table.insert(tests, {
         name = "module paths follow require lookup",
         func = function ()
-            T.assert_equal(package.module_lua_relpath("forge.hello", "hello.lua"), "forge/hello.lua")
-            T.assert_equal(package.module_lua_relpath("forge.hello", "hello/init.lua"), "forge/hello/init.lua")
-            T.assert_equal(package.module_c_relpath("forge.native", "so"), "forge/native.so")
-            T.assert_equal(package.module_c_relpath("cjson", ".dll"), "cjson.dll")
+            T.assert_equal(lua_module.module_lua_relpath("forge.hello", "hello.lua"), "forge/hello.lua")
+            T.assert_equal(lua_module.module_lua_relpath("forge.hello", "hello/init.lua"), "forge/hello/init.lua")
+            T.assert_equal(lua_module.module_c_relpath("forge.native", "so"), "forge/native.so")
+            T.assert_equal(lua_module.module_c_relpath("cjson", ".dll"), "cjson.dll")
         end
     })
 
     table.insert(tests, {
         name = "link mode follows shared and platforms that cannot dlopen stay static",
         func = function ()
-            T.assert_true(package.prefers_static(fake_package("linux", nil)))
-            T.assert_true(package.prefers_static(fake_package("linux", false)))
-            T.assert_false(package.prefers_static(fake_package("linux", true)))
-            T.assert_true(package.prefers_static(fake_package("dos", true)))
-            T.assert_true(package.prefers_static(fake_package("wince", true)))
-            T.assert_true(package.prefers_static(fake_package("wasm", true)))
-            T.assert_false(package.supports_dynamic("wasm"))
-            T.assert_true(package.supports_dynamic("linux"))
+            T.assert_true(lua_module.prefers_static(fake_package("linux", nil)))
+            T.assert_true(lua_module.prefers_static(fake_package("linux", false)))
+            T.assert_false(lua_module.prefers_static(fake_package("linux", true)))
+            T.assert_true(lua_module.prefers_static(fake_package("dos", true)))
+            T.assert_true(lua_module.prefers_static(fake_package("wince", true)))
+            T.assert_true(lua_module.prefers_static(fake_package("wasm", true)))
+            T.assert_false(lua_module.supports_dynamic("wasm"))
+            T.assert_true(lua_module.supports_dynamic("linux"))
         end
     })
 
@@ -69,14 +69,14 @@ function main(T)
                     return installdir
                 end
             }
-            package.install(pkg, {
+            lua_module.install(pkg, {
                 modules = {
                     ["forge.hello"] = src,
                     ["forge.inline"] = "return {inline = true}\n"
                 }
             })
 
-            local manifest = package.load_manifest(installdir)
+            local manifest = lua_module.load_manifest(installdir)
             T.assert_not_nil(manifest)
             T.assert_equal(manifest.luaver, "5.4")
             T.assert_equal(manifest.modules[1].name, "forge.hello")
@@ -85,7 +85,7 @@ function main(T)
             T.assert_equal(manifest.modules[2].name, "forge.inline")
             T.assert_true(os.isfile(path.join(installdir, "share/lua/5.4/forge/inline.lua")))
 
-            local patterns = package.search_patterns({installdir}, "path")
+            local patterns = lua_module.search_patterns({installdir}, "path")
             T.assert_true(#patterns >= 1, "pure Lua package should publish a LUA_PATH pattern")
             T.assert_true(patterns[1]:find("share/lua/5.4/%?%.lua", 1, false) ~= nil, patterns[1])
 
@@ -95,7 +95,7 @@ function main(T)
             local closed = env.get_lua_paths(root, "5.4", {sandbox = true, inherit_env = false})
             T.assert_true(closed:find(";;", 1, true) == nil, "sandbox LUA_PATH must not reopen the system path")
 
-            local bundled = package.bundle_sources({installdir})
+            local bundled = lua_module.bundle_sources({installdir})
             T.assert_equal(bundled.module_map[bundled.files[1]], "forge.hello")
             local code = bundler.generate_bundle_source(bundled.files, {
                 entry_module = "main",
@@ -108,6 +108,35 @@ function main(T)
             T.assert_true(code:find("luaopen_forge_native") ~= nil, "bundle should declare the static luaopen symbol")
             T.assert_true(code:find("forge%.native") ~= nil, "bundle should preload the native module name")
             T.assert_true(code:find("package") ~= nil and code:find("cpath") ~= nil, "bundle should set package.cpath")
+            os.tryrm(root)
+        end
+    })
+
+    table.insert(tests, {
+        name = "forge.lua.bin installs a Lua program into bin",
+        func = function ()
+            local root = path.join(os.tmpdir(), "forge_lua_bin")
+            local prefix = path.join(root, "prefix")
+            os.tryrm(root)
+            os.mkdir(path.join(root, "src"))
+            os.mkdir(path.join(root, "src", "bin"))
+            local forge_lua = path.join(os.projectdir(), "includes", "forge.lua")
+            io.writefile(path.join(root, "src", "bin", "tool"), "#!/usr/bin/env lua\nprint('forge-bin-ok')\n")
+            io.writefile(path.join(root, "xmake.lua"), string.format([[
+set_project("forge_lua_bin")
+includes(%q)
+
+target("tool")
+    add_rules("forge.lua.bin")
+    add_files("src/bin/tool")
+]], forge_lua))
+            local xmake_opt = {curdir = root}
+            os.execv("xmake", {"f", "-c", "-y", "-m", "release"}, xmake_opt)
+            os.execv("xmake", {"install", "-y", "-o", prefix}, xmake_opt)
+            local bin = path.join(prefix, "bin", "tool")
+            T.assert_true(os.isexec(bin), "installed Lua program should be executable")
+            local out = os.iorunv(bin, {})
+            T.assert_true(out:find("forge-bin-ok", 1, true) ~= nil, out)
             os.tryrm(root)
         end
     })

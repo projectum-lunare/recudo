@@ -69,6 +69,102 @@ local function module_parts(modname)
     return parts
 end
 
+local SEARCH_NOTE = "share/forge/lua-search.lua"
+
+-- Relative LUA_PATH / LUA_CPATH for a tree installed by forge.lua.module.
+function module_search_envs(ext)
+    ext = ext or ".so"
+    if not ext:startswith(".") then
+        ext = "." .. ext
+    end
+    return {
+        LUA_PATH = {
+            "share/lua/?.lua",
+            "share/lua/?/init.lua",
+            "share/lua/5.4/?.lua",
+            "share/lua/5.4/?/init.lua",
+            "share/lua/5.5/?.lua",
+            "share/lua/5.5/?/init.lua"
+        },
+        LUA_CPATH = {
+            "lib/?" .. ext,
+            "lib/lua/5.4/?" .. ext,
+            "lib/lua/5.5/?" .. ext
+        }
+    }
+end
+
+function write_module_search(installdir, ext)
+    local dir = path.join(installdir, "share/forge")
+    os.mkdir(dir)
+    io.save(path.join(installdir, SEARCH_NOTE), {envs = module_search_envs(ext)})
+end
+
+-- Publish the paths written by forge.lua.module onto the xmake package.
+function apply_search_envs(package)
+    local ext = ".so"
+    if package.is_plat and package:is_plat("windows", "mingw") then
+        ext = ".dll"
+    end
+    local note = path.join(package:installdir(), SEARCH_NOTE)
+    local data = os.isfile(note) and io.load(note) or nil
+    local envs = type(data) == "table" and data.envs or nil
+    if type(envs) ~= "table" then
+        envs = module_search_envs(ext)
+    end
+    for name, values in pairs(envs) do
+        for _, value in ipairs(table.wrap(values)) do
+            package:addenv(name, value)
+        end
+        package:mark_as_pathenv(name)
+    end
+end
+
+-- Install an xmake project that uses forge.lua.module. A project that already
+-- includes Forge is left alone. One that only declares targets receives Forge
+-- and the lua dependency around it.
+function install_project(package, configs)
+    local xmake_tools = import("package.tools.xmake")
+    local project = os.isfile("xmake.lua") and io.readfile("xmake.lua") or ""
+    local envs = xmake_tools.buildenvs(package)
+    if not project:find("forge.lua", 1, true) then
+        local rc = os.tmpfile() .. ".lua"
+        local forge_lua = path.join(FORGE_ROOT, "includes", "forge.lua")
+        io.writefile(rc, table.concat({
+            'add_rules("mode.release", "mode.debug")',
+            'add_requires("lua")',
+            "includes(" .. string.format("%q", forge_lua) .. ")",
+            ""
+        }, "\n"))
+        envs.XMAKE_RCFILES = envs.XMAKE_RCFILES or {}
+        table.insert(envs.XMAKE_RCFILES, rc)
+    end
+    xmake_tools.install(package, configs, {envs = envs})
+    apply_search_envs(package)
+end
+
+-- Lua splits LUA_PATH on ';', including on Linux, where xmake joins path envs with ':'.
+function lua_test(package, expr)
+    if package:is_cross() then
+        return
+    end
+    local function lua_list(name)
+        local value = os.getenv(name)
+        if not value or package:is_plat("windows", "mingw") then
+            return value
+        end
+        value = value:gsub(":", ";")
+        if not value:endswith(";;") then
+            value = value .. ";;"
+        end
+        return value
+    end
+    os.vrunv("lua", {"-e", expr}, {envs = {
+        LUA_PATH = lua_list("LUA_PATH"),
+        LUA_CPATH = lua_list("LUA_CPATH")
+    }})
+end
+
 -- foo.bar + hello.lua -> foo/bar.lua. An init.lua source keeps the init name.
 function module_lua_relpath(modname, source)
     local parts = module_parts(modname)
@@ -100,6 +196,34 @@ function module_c_relpath(modname, ext)
         table.insert(head, parts[i])
     end
     return table.concat(head, "/") .. "/" .. leaf .. "." .. ext
+end
+
+-- Build the recipe directory as an xmake project. The recipe file is that project.
+-- The rc file includes Forge instead of pasting it: a pasted script would see
+-- the recipe directory as scriptdir and miss the addon rules.
+function build(package)
+    local work = path.absolute(package:sourcedir())
+    local xmake_tools = import("package.tools.xmake")
+    local envs = xmake_tools.buildenvs(package)
+    local rcdir = package:cachedir()
+    os.mkdir(rcdir)
+    local forge_lua = path.join(FORGE_ROOT, "includes", "forge.lua")
+    local rcfile = path.join(rcdir, "forge-project.lua")
+    io.writefile(rcfile, "includes(" .. string.format("%q", forge_lua) .. ")\n")
+    envs.XMAKE_RCFILES = envs.XMAKE_RCFILES or {}
+    table.insert(envs.XMAKE_RCFILES, rcfile)
+    envs.FORGE_LUA_PROJECT = "1"
+    envs.FORGE_LUA_ROOT = FORGE_ROOT
+    envs.XMAKE_CONFIGDIR = work
+    local kind = package:config("shared") and "shared" or "static"
+    local xmake = os.programfile()
+    os.execv(xmake, {"f", "-P", work, "-y", "-c",
+        "--plat=" .. package:plat(), "--arch=" .. package:arch(),
+        "--mode=" .. (package:is_debug() and "debug" or "release"),
+        "--kind=" .. kind}, {curdir = work, envs = envs})
+    os.execv(xmake, {"build", "-P", work}, {curdir = work, envs = envs})
+    os.execv(xmake, {"install", "-P", work, "-y", "--packages=n", "-o", package:installdir()}, {curdir = work, envs = envs})
+    apply_search_envs(package)
 end
 
 -- Static mode builds only an archive. Dynamic mode builds only a shared module.
@@ -493,7 +617,7 @@ function install(package, opt)
     opt = opt or {}
     local specs = sorted_modules(opt.modules)
     if #specs == 0 then
-        raise("lua.package.install: modules is empty")
+        raise("lua.module.install: modules is empty")
     end
 
     local ver = opt.luaver or luaver_of(package)
@@ -515,7 +639,7 @@ function install(package, opt)
     local shared_ext, built_shared
     if #cmodules > 0 then
         if not prefers_static(package) and not lua_dep_is_shared(package) then
-            raise("lua.package.install: dynamic mode needs a shared liblua. " ..
+            raise("lua.module.install: dynamic mode needs a shared liblua. " ..
                   "Configure the project with --kind=shared. Platforms without dynamic linking stay static.")
         end
         shared_ext, built_shared = compile_cmodules(package, cmodules, {luaver = ver, srcdir = stage})
@@ -658,16 +782,58 @@ function fetch(package, opt)
     end
 end
 
+local function add_root(roots, seen, dir)
+    if not dir or dir == "" or seen[dir] or not has_manifest(dir) then
+        return
+    end
+    seen[dir] = true
+    table.insert(roots, dir)
+end
+
+-- A fetch result may record the library path without the install directory.
+local function consider_root(roots, seen, value)
+    if type(value) ~= "string" or not path.is_absolute(value) then
+        return
+    end
+    add_root(roots, seen, value)
+    local parent = path.directory(value)
+    add_root(roots, seen, parent)
+    add_root(roots, seen, path.directory(parent))
+end
+
 function roots_of(target)
     local roots = {}
+    local seen = {}
     if not target or not target.orderpkgs then
         return roots
     end
     for _, pkg in ipairs(target:orderpkgs()) do
         if pkg.installdir then
-            local dir = pkg:installdir({readonly = true})
-            if has_manifest(dir) then
-                table.insert(roots, dir)
+            add_root(roots, seen, pkg:installdir({readonly = true}))
+        end
+        if pkg.get then
+            for _, key in ipairs({"libfiles", "linkdirs", "includedirs"}) do
+                local value = pkg:get(key)
+                if type(value) == "table" then
+                    for _, item in ipairs(value) do
+                        consider_root(roots, seen, item)
+                    end
+                else
+                    consider_root(roots, seen, value)
+                end
+            end
+            local envs = pkg:get("envs")
+            if type(envs) == "table" then
+                for _, key in ipairs({"LD_LIBRARY_PATH", "DYLD_LIBRARY_PATH", "PATH"}) do
+                    local values = envs[key]
+                    if type(values) == "table" then
+                        for _, item in ipairs(values) do
+                            consider_root(roots, seen, item)
+                        end
+                    else
+                        consider_root(roots, seen, values)
+                    end
+                end
             end
         end
     end
