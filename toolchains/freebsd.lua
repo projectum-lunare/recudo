@@ -8,12 +8,12 @@ toolchain("freebsd")
     set_description("FreeBSD Native & Cross-Compilation SDK Toolchain")
 
     on_check(function (toolchain)
-        if os.host() == "freebsd" then
-            return true
-        end
         import("modules.detect.bsd", {rootdir = path.join(os.scriptdir(), "..")})
         import("modules.sdk", {rootdir = path.join(os.scriptdir(), "..")})
         local arch = bsd.normalize_arch(toolchain:arch())
+        if os.host() == "freebsd" and arch == bsd.normalize_arch(os.arch(), "freebsd") then
+            return true
+        end
         if bsd.is_available("freebsd", arch) then
             return true
         end
@@ -25,7 +25,7 @@ toolchain("freebsd")
         local arch = bsd.normalize_arch(toolchain:arch())
         local triple_arch = bsd.get_triple_arch("freebsd", arch)
 
-        if os.host() == "freebsd" then
+        if os.host() == "freebsd" and arch == bsd.normalize_arch(os.arch(), "freebsd") then
             local find_tool = import("lib.detect.find_tool")
             local cc = find_tool("clang") or find_tool("gcc") or find_tool("cc")
             local cxx = find_tool("clang++") or find_tool("g++") or find_tool("c++")

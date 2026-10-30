@@ -9,7 +9,7 @@ toolchain("atarist")
 
     on_check(function (toolchain)
         import("modules.sdk", {rootdir = path.join(os.scriptdir(), "..")})
-        return sdk.exists("atarist-sdk", "ATARIST_SDK")
+        return sdk.exists("atarist-sdk", "ATARIST_SDK", {check_file = "bin/m68k-atari-mint-gcc"})
     end)
 
     on_load(function (toolchain)

@@ -113,7 +113,9 @@ end
 -- Check if BSD SDK / toolchain is available for platform and arch
 function is_available(plat, arch, opt)
     opt = opt or {}
-    if os.host() == plat then
+    local host_arch = normalize_arch(os.arch(), plat)
+    local target_arch = normalize_arch(arch, plat)
+    if os.host() == plat and host_arch == target_arch then
         return true
     end
 

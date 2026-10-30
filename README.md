@@ -32,7 +32,7 @@ Instead of reinventing low-level DAG build graphs from scratch, Forge integrates
 | **`kolibri`**       | KolibriOS           | `i386`               | `i386`                                                                                                             | `kolibrios` | KolibriOS GCC (`kos32-gcc`)                     | `~/.local/opt/kolibrios-sdk` |
 | **`dos`**           | MS-DOS 32-bit       | `i386`               | `i386`                                                                                                             | `watcom`    | Open Watcom v2 (`owcc -b dos32a`)               | `~/.local/opt/watcom`        |
 | **`os2`**           | OS/2 32-bit Warp    | `i386`               | `i386`                                                                                                             | `watcom`    | Open Watcom v2 (`owcc -b os2v2`)                | `~/.local/opt/watcom`        |
-| **`wince`**         | Windows CE 3.0      | `arm`                | `arm`, `mips`, `ppc`, `sh3`, `sh4`, `x86`                                                                          | `evc3`      | MS eVC 3.0 (`clarm.exe`, `shcl.exe` via `wibo`) | `~/.local/opt/evc3`          |
+| **`wince`**         | Windows CE 3.0      | `arm`                | `arm`, `mips`, `ppc`, `sh3`, `sh4`, `x86`                                                                          | `evc3`      | MS eVC 3.0 (`clarm.exe`, `link.exe`, `lib.exe` via `wibo`) | `~/.local/opt/evc3`          |
 | **`freebsd`**       | FreeBSD             | `x86_64`             | `x86_64`, `i386`, `arm64`, `armv7`, `ppc`, `ppc64`, `ppc64le`, `ppcspe`, `riscv64`                                | `clang/gcc` | System / LLVM Clang, GCC                        | Host Native / Cross-Tools    |
 | **`openbsd`**       | OpenBSD             | `x86_64`             | `x86_64`, `i386`, `arm64`, `armv7`, `alpha`, `hppa`, `m88k`, `mips64`, `ppc`, `ppc64`, `riscv64`, `sh4`, `sparc64`| `clang/gcc` | System / LLVM Clang, GCC                        | Host Native / Cross-Tools    |
 | **`netbsd`**        | NetBSD              | `x86_64`             | `x86_64`, `i386`, `arm`, `arm64`, `alpha`, `hppa`, `ia64`, `m68k`, `m68010`, `mips`, `mips64`, `mipseb`, `mipsel`, `ppc`, `ppc64`, `riscv32`, `riscv64`, `sh3`, `sh3eb`, `sh3el`, `sparc`, `sparc64`, `vax` | `gcc/clang` | System GCC, LLVM Clang                          | Host Native / Cross-Tools    |
@@ -92,9 +92,18 @@ target("my_retro_app")
     -- Microsoft Embedded Visual C++ 3.0 via wibo (Windows CE)
     elseif is_plat("wince") then
         add_rules("forge.evc3", {override = true})
+        -- For console apps using standard main() instead of GUI WinMain():
+        -- set_values("evc3.entry", "mainACRTStartup")
     end
 ```
 *(Standard platforms like `amiga`, `atari`, `kolibri`, `freebsd`, `openbsd`, `netbsd`, `dragonflybsd`, and `linux` use native GCC/Clang toolchains automatically with standard Xmake C/C++ build graphs).*
+
+> [!NOTE]
+> **Windows CE Entry Point:** By default, executables built with `forge.evc3` target the CE graphical subsystem and use `/entry:WinMainCRTStartup` (which invokes `WinMain`). If you are compiling a console / CLI application with a standard `main()`, set the entry point to `mainACRTStartup`:
+> ```lua
+> set_values("evc3.entry", "mainACRTStartup")
+> -- or: add_ldflags("/entry:mainACRTStartup")
+> ```
 
 
 ---
@@ -173,6 +182,7 @@ xmake forge list
 ```
 
 ### Build for a Specific Target
+Target builds are isolated by default into `build/<target>` (e.g. `build/dos`, `build/amiga`), preserving independent configurations and artifacts:
 ```bash
 xmake forge amiga
 xmake forge atari
@@ -180,6 +190,11 @@ xmake forge kolibri
 xmake forge dos
 xmake forge os2
 xmake forge wince
+xmake forge freebsd
+xmake forge posix
+
+# To disable build directory isolation and build into root build/:
+xmake forge dos --no-isolate
 ```
 
 ### Run Full Multi-Platform Matrix Build

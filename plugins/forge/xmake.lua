@@ -7,6 +7,7 @@ local menu_conf = {
     options = {
         {'c', "clean",         "k",  nil,    "Clean reconfigure before build."},
         {'a', "arch",          "kv", nil,    "Target architecture (e.g. x86_64, arm64, i386, m68k, etc.)."},
+        {nil, "no-isolate",    "k",  nil,    "Do not isolate build directory into build/<target>."},
         {nil, "export-env",    "k",  nil,    "Export LUA_PATH and LUA_CPATH into .env file."},
         {nil, "json",          "k",  nil,    "Output environment paths in JSON format."},
         {nil, "fish",          "k",  nil,    "Output environment paths for fish shell."},

@@ -4,6 +4,7 @@
 
 set_project("forge")
 set_version("0.1.0")
+set_xmakever("2.8.5")
 
 includes("includes/forge.lua")
 
