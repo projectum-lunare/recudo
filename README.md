@@ -172,6 +172,88 @@ eval $(xmake forge env)
 xmake forge env --export-env
 ```
 
+### 6. Lua modules as xmake packages
+
+Forge treats a Lua module as an xmake package. There is no rockspec. Including Forge registers the local repository `forge-lua` (`repository/`). A recipe lists its modules and calls `lua.package.install`. `require` finds them through `LUA_PATH` and `LUA_CPATH`.
+
+#### Pure Lua (`.lua` only)
+
+A project made only of `.lua` files does not compile C and does not require the `lua` package. `xmake run` uses a Lua `>= 5.4` interpreter from `PATH` or `LUA_BIN`. Dependencies are pure Lua recipes such as `forge-hello`:
+
+```lua
+add_requires("forge-hello")
+
+target("app")
+    add_rules("forge.lua.app")
+    set_values("forge.lua.entry", "src/main.lua")
+    add_files("src/main.lua")
+    add_packages("forge-hello")
+```
+
+The matching recipe copies each file into `share/lua/<version>/` and publishes nothing for the linker. `set_kind("library", {headeronly = true})` and `on_fetch` tell xmake that the package has no C library:
+
+```lua
+package("my-mod")
+    set_kind("library", {headeronly = true})
+    set_sourcedir(path.join(os.scriptdir(), "src"))
+
+    on_install(function (package)
+        import("lua.package", {alias = "lua_package"}).install(package, {
+            modules = {
+                ["my.mod"] = "mod.lua"
+            }
+        })
+    end)
+
+    on_fetch(function (package, opt)
+        return import("lua.package", {alias = "lua_package"}).fetch(package, opt)
+    end)
+```
+
+`forge.lua.bundle` is the step that leaves pure Lua: it generates a C executable, so that target needs the `lua` package even when every script is `.lua`.
+
+#### Pure Lua project, C recipe
+
+The project stays `.lua` only. The link mode is the project's:
+
+```bash
+xmake f --kind=shared   # dynamic: shared liblua and .so/.dll
+xmake f --kind=static   # static: archives only, the default
+```
+
+That choice applies to the targets and to every package dependency. Amiga, Atari, KolibriOS, DOS, OS/2, Windows CE and Wasm stay static even with `--kind=shared`, because they cannot `dlopen`.
+
+In dynamic mode the recipe records the Lua package directory. `xmake run` copies the interpreter, `liblua` and the modules into `build/bin/<app>.runtime`. `bin/lua` puts `../lib` on the loader path. `LUA_PATH` and `LUA_CPATH` do not fall through to the system tree. Copy `build/bin/<app>` together with `build/bin/<app>.runtime`.
+
+```lua
+add_requires("forge-native")
+
+target("app")
+    add_rules("forge.lua.app")
+    set_values("forge.lua.entry", "src/main.lua")
+    add_files("src/main.lua")
+    add_packages("forge-native")
+```
+
+In static mode there is no `.so`. `forge.lua.bundle` links the static `luaopen_*` and `liblua.a` into one executable.
+
+#### Native modules
+
+A C module follows the same `--kind`. Shared mode installs `.so` or `.dll`. Static mode installs only the archive and `forge.lua.bundle` links `luaopen_*`. Amiga, Atari, KolibriOS, DOS, OS/2, Windows CE and Wasm install the archive in either mode.
+
+```lua
+add_requires("lua", {system = false})
+add_requires("forge-hello", "forge-native")
+
+target("app")
+    add_rules("forge.lua.app")
+    set_values("forge.lua.entry", "src/main.lua")
+    add_files("src/main.lua")
+    add_packages("lua", "forge-hello", "forge-native")
+```
+
+`forge-hello` and `forge-native` in `repository/` are the reference recipes. `forge-native` points at `src/native.c`. A new recipe lives at `packages/<initial>/<name>/xmake.lua`. A string that ends in `.c` or `.lua`, or names a file on disk, is a path. Any other string is the source text: Forge writes it to a temporary file and compiles or installs that file. Another recipe tree is registered with `add_repositories("my-lua /path/to/repo")`.
+
 ---
 
 ## CLI Usage

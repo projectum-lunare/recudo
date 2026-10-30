@@ -98,8 +98,208 @@ function get_file_map(target, sourcefiles)
     return file_map, module_map
 end
 
+local function normalize_path_opt(ver, opt)
+    if type(ver) == "table" and opt == nil then
+        opt = ver
+        ver = nil
+    end
+    return ver, opt or {}
+end
+
+local function append_package_patterns(items, roots, kind)
+    if not roots or #roots == 0 then
+        return
+    end
+    local lua_package = import("lua.package", {alias = "lua_package"})
+    for _, pattern in ipairs(lua_package.search_patterns(roots, kind)) do
+        table.insert(items, pattern)
+    end
+end
+
+local function program_in_dir(dir)
+    if not dir or not os.isdir(dir) then
+        return nil
+    end
+    for _, bin in ipairs({"lua", "lua.exe", "luajit", "luajit.exe"}) do
+        local prog = path.join(dir, "bin", bin)
+        if os.isexec(prog) then
+            return prog
+        end
+    end
+    return nil
+end
+
+local function program_in(pkg)
+    if not pkg or not pkg.installdir then
+        return nil
+    end
+    return program_in_dir(pkg:installdir({readonly = true}))
+end
+
+local function is_lua_pkg(pkg)
+    if not pkg or not pkg.name then
+        return false
+    end
+    local name = pkg:name()
+    return name == "lua" or name == "luajit"
+end
+
+-- The xmake-built interpreter attached to this target, directly or through a C module recipe.
+-- The recipe records package:dep("lua"):installdir() at install time.
+function private_lua(target)
+    if not target or not target.orderpkgs then
+        return nil
+    end
+    local lua_package = import("lua.package", {alias = "lua_package"})
+    local function from_pkg(pkg)
+        if not pkg or not pkg.installdir then
+            return nil
+        end
+        if is_lua_pkg(pkg) then
+            return program_in(pkg)
+        end
+        local runtime = lua_package.load_runtime(pkg:installdir({readonly = true}))
+        if runtime then
+            return program_in_dir(runtime.installdir)
+        end
+        return nil
+    end
+    if target.pkg then
+        for _, name in ipairs({"lua", "luajit"}) do
+            local found = from_pkg(target:pkg(name))
+            if found then
+                return found
+            end
+        end
+    end
+    for _, pkg in ipairs(target:orderpkgs()) do
+        local found = from_pkg(pkg)
+        if found then
+            return found
+        end
+    end
+    return nil
+end
+
+local function copy_newer(src, dst)
+    if not os.isfile(src) then
+        return
+    end
+    if os.isfile(dst) and os.mtime(src) <= os.mtime(dst) then
+        return
+    end
+    os.mkdir(path.directory(dst))
+    os.cp(src, dst)
+end
+
+-- Copy the private interpreter, its liblua and the recipe modules next to the launcher.
+-- bin/lua is a wrapper that points the dynamic loader at ../lib, so the tree can move
+-- without LD_LIBRARY_PATH and without the xmake package cache.
+function stage_sandbox(target, destdir, roots)
+    local prog = private_lua(target)
+    if not prog then
+        raise("A C Lua module needs the private interpreter built with the lua package.")
+    end
+    local prefix = path.directory(path.directory(prog))
+    local bindir = path.join(destdir, "bin")
+    local libdir = path.join(destdir, "lib")
+    os.mkdir(bindir)
+    os.mkdir(libdir)
+
+    local bin_name = path.filename(prog)
+    if os.host() == "windows" then
+        copy_newer(prog, path.join(bindir, bin_name))
+    else
+        copy_newer(prog, path.join(bindir, "lua.bin"))
+        local wrapper = path.join(bindir, "lua")
+        io.writefile(wrapper, table.concat({
+            "#!/bin/sh",
+            "SELF=$(cd \"$(dirname \"$0\")\" && pwd)",
+            "export LD_LIBRARY_PATH=\"$SELF/../lib${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}\"",
+            "export DYLD_LIBRARY_PATH=\"$SELF/../lib${DYLD_LIBRARY_PATH:+:$DYLD_LIBRARY_PATH}\"",
+            "exec \"$SELF/lua.bin\" \"$@\"",
+            ""
+        }, "\n"))
+        try { function() os.runv("chmod", {"+x", wrapper}) end }
+        try { function() os.runv("chmod", {"+x", path.join(bindir, "lua.bin")}) end }
+    end
+
+    local src_lib = path.join(prefix, "lib")
+    local src_bin = path.join(prefix, "bin")
+    if os.isdir(src_lib) then
+        for _, f in ipairs(os.files(path.join(src_lib, "liblua.*"))) do
+            copy_newer(f, path.join(libdir, path.filename(f)))
+        end
+        for _, f in ipairs(os.files(path.join(src_lib, "lua*.dll"))) do
+            copy_newer(f, path.join(bindir, path.filename(f)))
+        end
+    end
+    if os.isdir(src_bin) then
+        for _, f in ipairs(os.files(path.join(src_bin, "lua*.dll"))) do
+            copy_newer(f, path.join(bindir, path.filename(f)))
+        end
+    end
+
+    local lua_package = import("lua.package", {alias = "lua_package"})
+    local luavers = {}
+    local cexts = {}
+    for _, root in ipairs(roots or {}) do
+        local manifest = lua_package.load_manifest(root)
+        if manifest then
+            if manifest.luaver then
+                luavers[manifest.luaver] = true
+            end
+            for _, mod in ipairs(manifest.modules or {}) do
+                if mod.kind == "lua" and mod.relpath then
+                    copy_newer(path.join(root, mod.relpath), path.join(destdir, mod.relpath))
+                elseif mod.shared_relpath then
+                    copy_newer(path.join(root, mod.shared_relpath), path.join(destdir, mod.shared_relpath))
+                    if mod.ext then
+                        cexts[mod.ext] = true
+                    end
+                end
+            end
+        end
+    end
+
+    local versions = {}
+    for ver, _ in pairs(luavers) do
+        table.insert(versions, ver)
+    end
+    table.sort(versions)
+    local exts = {}
+    for ext, _ in pairs(cexts) do
+        table.insert(exts, ext)
+    end
+    table.sort(exts)
+    return {
+        versions = versions,
+        exts = exts
+    }
+end
+
+-- Interpreter that matches the Lua package linked into this target.
+-- Native modules are built against that library, so the runner uses the same binary.
+function lua_program(target)
+    return private_lua(target) or find_lua()
+end
+
+-- Library directory of the private Lua package, when it ships a shared library.
+function lua_libdir(target)
+    local prog = private_lua(target)
+    if not prog then
+        return nil
+    end
+    local dir = path.join(path.directory(path.directory(prog)), "lib")
+    if os.isdir(dir) then
+        return dir
+    end
+    return nil
+end
+
 -- Get canonical LUA_PATH string for a project
-function get_lua_paths(projdir, ver)
+function get_lua_paths(projdir, ver, opt)
+    ver, opt = normalize_path_opt(ver, opt)
     projdir = projdir or os.projectdir()
     if not ver then
         local lua_bin = find_lua()
@@ -143,18 +343,27 @@ function get_lua_paths(projdir, ver)
         table.insert(paths, path.join(projdir, "lua_modules/share/lua/5.4/?/init.lua"))
     end
 
-    -- 4. Join and append Lua system default fallback (;;)
-    local path_str = table.concat(paths, ";") .. ";;"
-    local user_lua_path = os.getenv("LUA_PATH")
-    if user_lua_path and #user_lua_path > 0 then
-        path_str = path_str .. ";" .. user_lua_path
+    -- 4. xmake packages installed by lua.package
+    append_package_patterns(paths, opt.package_roots, "path")
+
+    -- 5. A sandbox keeps only the project and its packages. `;;` would reopen the system path.
+    local path_str = table.concat(paths, ";")
+    if not opt.sandbox then
+        path_str = path_str .. ";;"
+    end
+    if not opt.sandbox and opt.inherit_env ~= false then
+        local user_lua_path = os.getenv("LUA_PATH")
+        if user_lua_path and #user_lua_path > 0 then
+            path_str = path_str .. ";" .. user_lua_path
+        end
     end
 
     return path_str
 end
 
 -- Get canonical LUA_CPATH string for dynamic C extensions (.so / .dll)
-function get_lua_cpaths(projdir, ver)
+function get_lua_cpaths(projdir, ver, opt)
+    ver, opt = normalize_path_opt(ver, opt)
     projdir = projdir or os.projectdir()
     if not ver then
         local lua_bin = find_lua()
@@ -189,21 +398,31 @@ function get_lua_cpaths(projdir, ver)
         table.insert(cpaths, path.join(projdir, "lua_modules/lib/lua/5.4/?/?." .. ext))
     end
 
-    -- 3. Join and append Lua system default fallback (;;)
-    local cpath_str = table.concat(cpaths, ";") .. ";;"
-    local user_lua_cpath = os.getenv("LUA_CPATH")
-    if user_lua_cpath and #user_lua_cpath > 0 then
-        cpath_str = cpath_str .. ";" .. user_lua_cpath
+    -- 3. xmake packages installed by lua.package
+    append_package_patterns(cpaths, opt.package_roots, "cpath")
+
+    -- 4. A sandbox keeps only the project and its packages. `;;` would reopen the system path.
+    local cpath_str = table.concat(cpaths, ";")
+    if not opt.sandbox then
+        cpath_str = cpath_str .. ";;"
+    end
+    if not opt.sandbox and opt.inherit_env ~= false then
+        local user_lua_cpath = os.getenv("LUA_CPATH")
+        if user_lua_cpath and #user_lua_cpath > 0 then
+            cpath_str = cpath_str .. ";" .. user_lua_cpath
+        end
     end
 
     return cpath_str
 end
 
 -- Returns environment table { LUA_PATH = ..., LUA_CPATH = ... }
-function get_env(projdir)
+function get_env(projdir, opt)
+    opt = opt or {}
+    local ver = opt.ver
     return {
-        LUA_PATH  = get_lua_paths(projdir),
-        LUA_CPATH = get_lua_cpaths(projdir)
+        LUA_PATH  = get_lua_paths(projdir, ver, opt),
+        LUA_CPATH = get_lua_cpaths(projdir, ver, opt)
     }
 end
 

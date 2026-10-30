@@ -30,6 +30,9 @@ extern "C" {
 #include <stdio.h>
 #include <stdlib.h>
 
+<% for _, native in ipairs(native_modules or {}) do %>
+extern int <%= native.symbol %>(lua_State *L);
+<% end %>
 <% for _, mod in ipairs(modules) do %>
 /* Module: <%= mod.name %> (<%= mod.relpath %>) */
 static const unsigned char <%= mod.varname %>[] = {
@@ -52,6 +55,10 @@ void forge_lua_preload_all(lua_State *L) {
     lua_pushcfunction(L, <%= mod.loader %>);
     lua_setfield(L, -2, "<%= mod.name %>");
 <% end %>
+<% for _, native in ipairs(native_modules or {}) do %>
+    lua_pushcfunction(L, <%= native.symbol %>);
+    lua_setfield(L, -2, "<%= native.name %>");
+<% end %>
     lua_pop(L, 2);
 }
 
@@ -65,6 +72,12 @@ int main(int argc, char **argv) {
     }
     luaL_openlibs(L);
     forge_lua_preload_all(L);
+<% if cpath and #cpath > 0 then %>
+    lua_getglobal(L, "package");
+    lua_pushstring(L, "<%= cpath %>");
+    lua_setfield(L, -2, "cpath");
+    lua_pop(L, 1);
+<% end %>
 
     /* Push arguments into arg table */
     lua_createtable(L, argc - 1, 1);
@@ -89,6 +102,10 @@ int main(int argc, char **argv) {
 }
 <% end %>
 ]]
+
+local function c_escape(text)
+    return (tostring(text):gsub("\\", "\\\\"):gsub("\"", "\\\""):gsub("\r", "\\r"):gsub("\n", "\\n"))
+end
 
 -- Format raw file bytes into formatted C hex array lines
 local function bytes_to_c_hex(content)
@@ -145,8 +162,18 @@ function generate_bundle_source(files, opt)
         end
     end
 
+    local natives = {}
+    for _, native in ipairs(opt.native_modules or {}) do
+        table.insert(natives, {
+            name = c_escape(native.name),
+            symbol = native.symbol
+        })
+    end
+
     local context = {
         modules = modules,
+        native_modules = natives,
+        cpath = opt.cpath and #opt.cpath > 0 and c_escape(opt.cpath) or nil,
         entry_module = entry_module,
         include_main = opt.include_main ~= false
     }
