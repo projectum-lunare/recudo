@@ -2,12 +2,34 @@
 -- Copyright (C) 2026 Gustavo Veiga <gustavo.veiga@outlook.com.br>
 -- Mozilla Public License Version 2.0
 
+local rootdir = path.join(os.scriptdir(), "../../")
+
 import("core.base.option")
-import("modules.detect.bsd", {rootdir = path.join(os.scriptdir(), "../../")})
-import("modules.sdk", {rootdir = path.join(os.scriptdir(), "../../")})
+import("modules.detect.bsd", {rootdir = rootdir})
+import("modules.sdk", {rootdir = rootdir})
 
 local host_os = os.host()
 local host_arch = os.arch()
+
+local order = {
+    "amiga", "atari", "kolibri", "dos", "os2", "wince",
+    "freebsd", "openbsd", "netbsd", "dragonflybsd",
+    "posix"
+}
+
+local aliases = {
+    atarist = "atari",
+    amigaos = "amiga",
+    kolibrios = "kolibri",
+    linux = "posix"
+}
+
+local bsd_ids = {
+    freebsd = true,
+    openbsd = true,
+    netbsd = true,
+    dragonflybsd = true
+}
 
 local targets = {
     amiga = {
@@ -112,6 +134,39 @@ local targets = {
     }
 }
 
+local function kind_of(t)
+    if t.id == "posix" then
+        return "posix"
+    elseif t.id == "dos" or t.id == "os2" then
+        return "watcom"
+    elseif t.id == "wince" then
+        return "evc3"
+    elseif bsd_ids[t.id] then
+        return "bsd"
+    elseif t.check_file then
+        return "sdk"
+    end
+end
+
+local function watcom_module()
+    return import("modules.detect.watcom", {rootdir = rootdir})
+end
+
+local function find_wibo()
+    local wibo_bin = os.getenv("WIBO_BIN")
+    if not wibo_bin then
+        local wibo_dir = sdk.find("wibo", "WIBO_DIR", {must_exist = true})
+        if wibo_dir then
+            wibo_bin = path.join(wibo_dir, "bin", "wibo")
+        end
+    end
+    return wibo_bin
+end
+
+local function lua_environment()
+    return import("lua.env", {rootdir = path.join(rootdir, "modules")})
+end
+
 function is_host_compatible(plat, arch)
     if not plat then return false end
     local host = os.host()
@@ -140,36 +195,94 @@ function is_evc3_available(t)
         return true
     end
 
-    local wibo_bin = os.getenv("WIBO_BIN")
-    if not wibo_bin then
-        local wibo_dir = sdk.find("wibo", "WIBO_DIR", {must_exist = true})
-        if wibo_dir then
-            wibo_bin = path.join(wibo_dir, "bin", "wibo")
-        end
-    end
+    local wibo_bin = find_wibo()
     return wibo_bin ~= nil and os.isexec(wibo_bin)
 end
 
+local probes = {
+    watcom = function (t)
+        return watcom_module().is_available(t.sdk_env)
+    end,
+    evc3 = function (t)
+        return is_evc3_available(t)
+    end,
+    bsd = function (t, target_arch)
+        return bsd.is_available(t.id, target_arch)
+    end,
+    sdk = function (t)
+        return sdk.exists(t.sdk_name, t.sdk_env, {check_file = t.check_file})
+    end
+}
+
+local function bsd_location(t, target_arch)
+    local _, tool = bsd.find_toolchain(t.id, target_arch)
+    if tool then
+        return type(tool) == "table" and tool.program or tool
+    end
+    local sysroot = os.getenv(t.sdk_env or (t.id:upper() .. "_SYSROOT"))
+    if sysroot and os.isdir(sysroot) then
+        return sysroot
+    end
+    return "Cross toolchain for " .. target_arch .. " missing"
+end
+
+local function watcom_location(t, _, available)
+    local w_sdk = watcom_module().find_sdk(t.sdk_env)
+    if available then
+        return w_sdk
+    elseif w_sdk and os.isdir(w_sdk) then
+        return w_sdk .. " (owcc missing)"
+    else
+        return (w_sdk or "WATCOM") .. " (not installed)"
+    end
+end
+
+local function evc3_location(t, _, available)
+    local evc_dir = sdk.find("evc3", t.sdk_env, {must_exist = true})
+    if available then
+        return evc_dir
+    elseif not evc_dir then
+        return "EVC3_DIR not installed"
+    elseif os.host() ~= "windows" then
+        local wibo_bin = find_wibo()
+        if not (wibo_bin and os.isexec(wibo_bin)) then
+            return evc_dir .. " (wibo missing)"
+        end
+        return evc_dir .. " (clarm.exe/link.exe missing)"
+    else
+        return evc_dir .. " (clarm.exe/link.exe missing)"
+    end
+end
+
+local function sdk_location(t, _, available)
+    local found = sdk.find(t.sdk_name, t.sdk_env, {must_exist = true})
+    if available then
+        return found
+    elseif found and os.isdir(found) then
+        return found .. " (" .. path.filename(t.check_file) .. " missing)"
+    else
+        return (sdk.find(t.sdk_name, t.sdk_env) or t.sdk_name) .. " (not installed)"
+    end
+end
+
+local locations = {
+    bsd = bsd_location,
+    watcom = watcom_location,
+    evc3 = evc3_location,
+    sdk = sdk_location
+}
+
 function is_sdk_available(t, arch)
     local target_arch = arch or t.arch
-    if t.id == "posix" then
+    if kind_of(t) == "posix" then
         return is_host_compatible(os.host(), target_arch)
     end
     if is_host_compatible(t.plat, target_arch) then
         return true
     end
-    if t.id == "dos" or t.id == "os2" then
-        local watcom = import("modules.detect.watcom", {rootdir = path.join(os.scriptdir(), "../../")})
-        return watcom.is_available(t.sdk_env)
-    end
-    if t.id == "wince" then
-        return is_evc3_available(t)
-    end
-    if t.id == "freebsd" or t.id == "openbsd" or t.id == "netbsd" or t.id == "dragonflybsd" then
-        return bsd.is_available(t.id, target_arch)
-    end
-    if t.check_file then
-        return sdk.exists(t.sdk_name, t.sdk_env, {check_file = t.check_file})
+    local probe = probes[kind_of(t)]
+    if probe then
+        return probe(t, target_arch)
     end
     return false
 end
@@ -177,8 +290,9 @@ end
 function get_sdk_path(t, arch)
     local target_arch = arch or t.arch
     local available = is_sdk_available(t, target_arch)
+    local kind = kind_of(t)
 
-    if t.id == "posix" then
+    if kind == "posix" then
         if available then
             return "Host Native Development Tools"
         else
@@ -190,62 +304,10 @@ function get_sdk_path(t, arch)
         return "Host Native Development Tools"
     end
 
-    if t.id == "freebsd" or t.id == "openbsd" or t.id == "netbsd" or t.id == "dragonflybsd" then
-        local pfx, tool = bsd.find_toolchain(t.id, target_arch)
-        if tool then
-            return type(tool) == "table" and tool.program or tool
-        end
-        local sysroot = os.getenv(t.sdk_env or (t.id:upper() .. "_SYSROOT"))
-        if sysroot and os.isdir(sysroot) then
-            return sysroot
-        end
-        return "Cross toolchain for " .. target_arch .. " missing"
+    local locate = locations[kind]
+    if locate then
+        return locate(t, target_arch, available)
     end
-
-    if t.id == "dos" or t.id == "os2" then
-        local watcom = import("modules.detect.watcom", {rootdir = path.join(os.scriptdir(), "../../")})
-        local w_sdk = watcom.find_sdk(t.sdk_env)
-        if available then
-            return w_sdk
-        elseif w_sdk and os.isdir(w_sdk) then
-            return w_sdk .. " (owcc missing)"
-        else
-            return (w_sdk or "WATCOM") .. " (not installed)"
-        end
-    end
-
-    if t.id == "wince" then
-        local evc_dir = sdk.find("evc3", t.sdk_env, {must_exist = true})
-        if available then
-            return evc_dir
-        elseif not evc_dir then
-            return "EVC3_DIR not installed"
-        elseif os.host() ~= "windows" then
-            local wibo_bin = os.getenv("WIBO_BIN")
-            if not wibo_bin then
-                local wibo_dir = sdk.find("wibo", "WIBO_DIR", {must_exist = true})
-                if wibo_dir then wibo_bin = path.join(wibo_dir, "bin", "wibo") end
-            end
-            if not (wibo_bin and os.isexec(wibo_bin)) then
-                return evc_dir .. " (wibo missing)"
-            end
-            return evc_dir .. " (clarm.exe/link.exe missing)"
-        else
-            return evc_dir .. " (clarm.exe/link.exe missing)"
-        end
-    end
-
-    if t.check_file then
-        local p = sdk.find(t.sdk_name, t.sdk_env, {must_exist = true})
-        if available then
-            return p
-        elseif p and os.isdir(p) then
-            return p .. " (" .. path.filename(t.check_file) .. " missing)"
-        else
-            return (sdk.find(t.sdk_name, t.sdk_env) or t.sdk_name) .. " (not installed)"
-        end
-    end
-
     return "Cross SDK (" .. (t.sdk_env or t.sdk_name) .. ")"
 end
 
@@ -257,11 +319,6 @@ local function show_list(opt)
     cprint("${bright magenta}║ ${dim}Target       Status Toolchain  SDK Location / Platform Notes                 ${bright magenta}║")
     cprint("${bright magenta}╟──────────────────────────────────────────────────────────────────────────────╢")
 
-    local order = {
-        "amiga", "atari", "kolibri", "dos", "os2", "wince",
-        "freebsd", "openbsd", "netbsd", "dragonflybsd",
-        "posix"
-    }
     for _, key in ipairs(order) do
         local t = targets[key]
         local target_arch = opt.arch or t.arch
@@ -279,7 +336,7 @@ local function show_list(opt)
     end
     cprint("${bright magenta}╚══════════════════════════════════════════════════════════════════════════════╝${clear}")
 
-    local lua_env = import("lua.env", {rootdir = path.join(os.scriptdir(), "../../modules")})
+    local lua_env = lua_environment()
     local lua_bin = lua_env.find_lua()
     if lua_bin then
         local lua_ver = try { function() return os.iorunv(lua_bin, {"-v"}) end } or "found"
@@ -298,38 +355,32 @@ end
 
 local function show_env(env_opts)
     env_opts = env_opts or {}
-    local lua_env = import("lua.env", {rootdir = path.join(os.scriptdir(), "../../modules")})
+    local lua_env = lua_environment()
     local projdir = os.projectdir()
 
-    local is_export_env = env_opts.export_env or option.get("export-env") or option.get("export_env") or (option.get("build_target") == "--export-env") or (option.get("build_target") == "export-env")
-    local is_json = env_opts.json or option.get("json") or (option.get("build_target") == "--json") or (option.get("build_target") == "json")
-    local is_fish = env_opts.fish or option.get("fish") or (option.get("build_target") == "--fish") or (option.get("build_target") == "fish")
-
-    if is_export_env then
+    if env_opts.export_env then
         local env_file = path.join(projdir, ".env")
         lua_env.write_dotenv(projdir, env_file)
         cprint("${bright green}==> [forge] Exported environment to: ${bright white}%s${clear}", env_file)
         return
     end
 
-    if is_json then
+    if env_opts.json then
         import("core.base.json")
         local data = lua_env.get_env(projdir)
         print(json.encode(data))
         return
     end
 
-    if is_fish then
-        local p = lua_env.get_lua_paths(projdir)
-        local cp = lua_env.get_lua_cpaths(projdir)
+    local p = lua_env.get_lua_paths(projdir)
+    local cp = lua_env.get_lua_cpaths(projdir)
+    if env_opts.fish then
         print("set -gx LUA_PATH \"" .. p .. "\"")
         print("set -gx LUA_CPATH \"" .. cp .. "\"")
         return
     end
 
     -- Standard POSIX export: eval $(xmake forge env)
-    local p = lua_env.get_lua_paths(projdir)
-    local cp = lua_env.get_lua_cpaths(projdir)
     print("export LUA_PATH=\"" .. p .. "\"")
     print("export LUA_CPATH=\"" .. cp .. "\"")
 end
@@ -394,25 +445,49 @@ local function build_target(key, opt)
     return logfile
 end
 
+local function named(value, names)
+    if not value then
+        return false
+    end
+    for _, name in ipairs(names) do
+        if value == name then
+            return true
+        end
+    end
+    return false
+end
+
+-- option_names are menu keys. value_names are raw argv / build_target spellings.
+local function flag_enabled(args, option_names, value_names)
+    for _, name in ipairs(option_names) do
+        if option.get(name) then
+            return true
+        end
+    end
+    if named(option.get("build_target"), value_names) then
+        return true
+    end
+    for _, arg in ipairs(args) do
+        if named(arg, value_names) then
+            return true
+        end
+    end
+    return false
+end
+
 function main(...)
     local args = {...}
     local target_name = option.get("target") or "list"
 
-    for _, a in ipairs(args) do
-        if a == "list" or a == "env" or a == "all" or targets[a] then
-            target_name = a
+    for _, arg in ipairs(args) do
+        if arg == "list" or arg == "env" or arg == "all" or targets[arg] then
+            target_name = arg
         end
     end
 
-    local is_json = option.get("json") or (option.get("build_target") == "--json") or (option.get("build_target") == "json")
-    local is_export_env = option.get("export-env") or option.get("export_env") or (option.get("build_target") == "--export-env") or (option.get("build_target") == "export-env")
-    local is_fish = option.get("fish") or (option.get("build_target") == "--fish") or (option.get("build_target") == "fish")
-
-    for _, a in ipairs(args) do
-        if a == "--json" or a == "json" then is_json = true end
-        if a == "--export-env" or a == "export-env" or a == "--export_env" then is_export_env = true end
-        if a == "--fish" or a == "fish" then is_fish = true end
-    end
+    local is_json = flag_enabled(args, {"json"}, {"json", "--json"})
+    local is_export_env = flag_enabled(args, {"export-env", "export_env"}, {"export-env", "--export-env", "--export_env"})
+    local is_fish = flag_enabled(args, {"fish"}, {"fish", "--fish"})
 
     local raw_arch = option.get("arch")
     local resolved_arch = raw_arch and bsd.normalize_arch(raw_arch) or nil
@@ -431,22 +506,13 @@ function main(...)
         fish = is_fish
     }
 
-    -- Support shorthand alias
-    if target_name == "atarist" then target_name = "atari" end
-    if target_name == "amigaos" then target_name = "amiga" end
-    if target_name == "kolibrios" then target_name = "kolibri" end
-    if target_name == "linux" then target_name = "posix" end
+    target_name = aliases[target_name] or target_name
 
     if target_name == "list" then
         show_list(opt)
     elseif target_name == "env" or is_export_env or is_json or is_fish then
         show_env(opt)
     elseif target_name == "all" then
-        local order = {
-            "amiga", "atari", "kolibri", "dos", "os2", "wince",
-            "freebsd", "openbsd", "netbsd", "dragonflybsd",
-            "posix"
-        }
         local results = {}
         local all_opt = table.clone(opt)
         all_opt.isolate = true
