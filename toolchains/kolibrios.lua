@@ -9,7 +9,7 @@ toolchain("kolibrios")
 
     on_check(function (toolchain)
         import("modules.sdk", {rootdir = path.join(os.scriptdir(), "..")})
-        return sdk.exists("kolibrios-sdk", "KOLIBRI_SDK")
+        return sdk.exists("kolibrios-sdk", "KOLIBRI_SDK", {check_file = "bin/kos32-gcc"})
     end)
 
     on_load(function (toolchain)

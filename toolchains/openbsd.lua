@@ -8,12 +8,12 @@ toolchain("openbsd")
     set_description("OpenBSD Native & Cross-Compilation SDK Toolchain")
 
     on_check(function (toolchain)
-        if os.host() == "openbsd" then
-            return true
-        end
         import("modules.detect.bsd", {rootdir = path.join(os.scriptdir(), "..")})
         import("modules.sdk", {rootdir = path.join(os.scriptdir(), "..")})
         local arch = bsd.normalize_arch(toolchain:arch())
+        if os.host() == "openbsd" and arch == bsd.normalize_arch(os.arch(), "openbsd") then
+            return true
+        end
         if bsd.is_available("openbsd", arch) then
             return true
         end
@@ -25,7 +25,7 @@ toolchain("openbsd")
         local arch = bsd.normalize_arch(toolchain:arch())
         local triple_arch = bsd.get_triple_arch("openbsd", arch)
 
-        if os.host() == "openbsd" then
+        if os.host() == "openbsd" and arch == bsd.normalize_arch(os.arch(), "openbsd") then
             local find_tool = import("lib.detect.find_tool")
             local cc = find_tool("clang") or find_tool("gcc") or find_tool("cc")
             local cxx = find_tool("clang++") or find_tool("g++") or find_tool("c++")

@@ -9,7 +9,7 @@ toolchain("amigaos")
 
     on_check(function (toolchain)
         import("modules.sdk", {rootdir = path.join(os.scriptdir(), "..")})
-        return sdk.exists("amigaos-sdk", "AMIGA_SDK")
+        return sdk.exists("amigaos-sdk", "AMIGA_SDK", {check_file = "bin/m68k-amigaos-gcc"})
     end)
 
     on_load(function (toolchain)

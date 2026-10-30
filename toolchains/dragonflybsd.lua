@@ -8,12 +8,13 @@ toolchain("dragonflybsd")
     set_description("DragonFly BSD Native & Cross-Compilation SDK Toolchain")
 
     on_check(function (toolchain)
-        if os.host() == "dragonflybsd" or os.host() == "dragonfly" then
-            return true
-        end
         import("modules.detect.bsd", {rootdir = path.join(os.scriptdir(), "..")})
         import("modules.sdk", {rootdir = path.join(os.scriptdir(), "..")})
         local arch = bsd.normalize_arch(toolchain:arch())
+        local host = os.host()
+        if (host == "dragonflybsd" or host == "dragonfly") and arch == bsd.normalize_arch(os.arch(), "dragonflybsd") then
+            return true
+        end
         if bsd.is_available("dragonflybsd", arch) then
             return true
         end
@@ -21,7 +22,11 @@ toolchain("dragonflybsd")
     end)
 
     on_load(function (toolchain)
-        if os.host() == "dragonflybsd" or os.host() == "dragonfly" then
+        import("modules.detect.bsd", {rootdir = path.join(os.scriptdir(), "..")})
+        local arch = bsd.normalize_arch(toolchain:arch())
+        local host = os.host()
+
+        if (host == "dragonflybsd" or host == "dragonfly") and arch == bsd.normalize_arch(os.arch(), "dragonflybsd") then
             local find_tool = import("lib.detect.find_tool")
             local cc = find_tool("gcc") or find_tool("clang") or find_tool("cc")
             local cxx = find_tool("g++") or find_tool("clang++") or find_tool("c++")
@@ -34,12 +39,10 @@ toolchain("dragonflybsd")
             return
         end
 
-        import("modules.detect.bsd", {rootdir = path.join(os.scriptdir(), "..")})
         import("modules.sdk", {rootdir = path.join(os.scriptdir(), "..")})
         local sdkdir = sdk.find("dragonflybsd-sdk", "DRAGONFLY_SDK")
         local bindir = sdkdir and path.join(sdkdir, "bin")
 
-        local arch = bsd.normalize_arch(toolchain:arch())
         local found_prefix, found_tool = bsd.find_toolchain("dragonflybsd", arch, {bindir = bindir})
         if found_prefix then
             local cc_name = found_prefix .. "gcc"

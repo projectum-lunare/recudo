@@ -1,4 +1,4 @@
--- Unit Tests: BSD Architecture Normalization & GNU Triples
+-- Unit Tests: BSD Architecture Normalization, GNU Triples & Availability
 
 import("detect.bsd", {rootdir = "modules"})
 
@@ -87,6 +87,15 @@ function main(T)
             local dfly = bsd.get_prefixes("dragonflybsd", "x86_64")
             T.assert_contains(dfly, "x86_64-unknown-dragonfly-")
             T.assert_contains(dfly, "x86_64-dragonfly-")
+        end
+    })
+
+    table.insert(tests, {
+        name = "is_available returns false when cross-compiler is missing",
+        func = function ()
+            -- In an environment without FreeBSD cross toolchains installed:
+            local avail = bsd.is_available("freebsd", "riscv64", {bindir = "/nonexistent/bin"})
+            T.assert_false(avail, "riscv64 should not report available when no cross toolchain is installed")
         end
     })
 

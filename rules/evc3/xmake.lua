@@ -2,31 +2,21 @@
 -- Rule: Microsoft Embedded Visual C++ 3.0 via wibo (Windows CE)
 -- Native Xmake batchcmds execution (no external shell/python wrappers)
 
-local function scan_evc3_includes(filepath, searchdirs, visited, results)
-    visited = visited or {}
-    results = results or {}
-    if visited[filepath] or not os.isfile(filepath) then return results end
-    visited[filepath] = true
-    for line in io.lines(filepath) do
-        local inc = line:match('^%s*#%s*include%s*["<]([^">]+)[">]')
-        if inc then
-            local candidate = path.join(path.directory(filepath), inc)
-            if os.isfile(candidate) then
-                table.insert(results, candidate)
-                scan_evc3_includes(candidate, searchdirs, visited, results)
-            else
-                for _, d in ipairs(searchdirs) do
-                    candidate = path.join(d, inc)
-                    if os.isfile(candidate) then
-                        table.insert(results, candidate)
-                        scan_evc3_includes(candidate, searchdirs, visited, results)
-                        break
-                    end
-                end
+local function get_target_objectfiles(target)
+    local objs = {}
+    local raw_objs = target:objectfiles()
+    if raw_objs and #raw_objs > 0 then
+        for _, obj in ipairs(raw_objs) do
+            table.insert(objs, obj)
+        end
+    else
+        for _, src in ipairs(table.wrap(target:sourcefiles())) do
+            if src:endswith(".c") or src:endswith(".cpp") or src:endswith(".cc") or src:endswith(".cxx") then
+                table.insert(objs, target:objectfile(src))
             end
         end
     end
-    return results
+    return table.unique(objs)
 end
 
 local function setup_evc3_rule(rule_name)
@@ -56,6 +46,35 @@ local function setup_evc3_rule(rule_name)
             local wibo = target:data("evc3.wibo")
             local arch = target:data("evc3.arch") or "arm"
 
+            local function scan_evc3_includes(filepath, searchdirs, visited, results)
+                visited = visited or {}
+                results = results or {}
+                if visited[filepath] or not os.isfile(filepath) then return results end
+                visited[filepath] = true
+                local content = io.readfile(filepath)
+                if not content then return results end
+                for _, line in ipairs(content:split("\n", {plain = true})) do
+                    local inc = line:match('^%s*#%s*include%s*["<]([^">]+)[">]')
+                    if inc then
+                        local candidate = path.join(path.directory(filepath), inc)
+                        if os.isfile(candidate) then
+                            table.insert(results, candidate)
+                            scan_evc3_includes(candidate, searchdirs, visited, results)
+                        else
+                            for _, d in ipairs(searchdirs) do
+                                candidate = path.join(d, inc)
+                                if os.isfile(candidate) then
+                                    table.insert(results, candidate)
+                                    scan_evc3_includes(candidate, searchdirs, visited, results)
+                                    break
+                                end
+                            end
+                        end
+                    end
+                end
+                return results
+            end
+
             local comp_name = "clarm.exe"
             local arch_defs = {"_ARM_", "ARM"}
             if arch == "mips" then
@@ -77,7 +96,12 @@ local function setup_evc3_rule(rule_name)
 
             local cl_exe = path.join(s, "bin", comp_name)
             local objfile = target:objectfile(sourcefile)
-            table.insert(target:objectfiles(), objfile)
+
+            -- Deduplicated registration into target:objectfiles()
+            local current_objs = target:objectfiles()
+            if current_objs and not table.contains(current_objs, objfile) then
+                table.insert(current_objs, objfile)
+            end
 
             local is_cxx = sourcefile:endswith(".cpp") or sourcefile:endswith(".cc") or sourcefile:endswith(".cxx")
             local envs = {
@@ -171,7 +195,12 @@ local function setup_evc3_rule(rule_name)
             batchcmds:mkdir(path.directory(objfile))
             local comp_tag = is_cxx and "compiling.evc3.c++" or "compiling.evc3"
             batchcmds:show_progress(opt.progress, "${color.build.object}%s (%s) %s", comp_tag, arch, rel_source)
-            batchcmds:vrunv(wibo, argv, {envs = envs, curdir = os.projectdir()})
+            if wibo then
+                batchcmds:vrunv(wibo, argv, {envs = envs, curdir = os.projectdir()})
+            else
+                table.remove(argv, 1)
+                batchcmds:vrunv(cl_exe, argv, {envs = envs, curdir = os.projectdir()})
+            end
 
             -- Header dependency tracking via recursive include scanning
             local searchdirs = table.join({path.directory(sourcefile)}, incdirs, {path.join(s, "include")})
@@ -187,16 +216,110 @@ local function setup_evc3_rule(rule_name)
         end)
 
         on_linkcmd(function (target, batchcmds, opt)
+            local s = target:data("evc3.sdk")
+            local wibo = target:data("evc3.wibo")
+            local arch = target:data("evc3.arch") or get_config("arch") or "arm"
             local targetfile = target:targetfile()
+
             batchcmds:mkdir(path.directory(targetfile))
-            batchcmds:show_progress(opt.progress, "${color.build.target}archiving.evc3 %s", targetfile)
 
-            local argv = {"cr", path.absolute(targetfile)}
-            for _, obj in ipairs(target:objectfiles()) do
-                table.insert(argv, path.absolute(obj))
+            local envs = {
+                INCLUDE = path.join(s, "include"),
+                LIB = path.join(s, "lib", arch)
+            }
+
+            local machine_map = {
+                arm = "ARM",
+                mips = "MIPS",
+                ppc = "PPC",
+                sh3 = "SH3",
+                sh4 = "SH4",
+                x86 = "IX86"
+            }
+            local machine = machine_map[arch] or "ARM"
+
+            local objs = get_target_objectfiles(target)
+
+            if target:is_binary() or target:is_shared() then
+                local link_exe = path.join(s, "bin", "link.exe")
+                local argv = {
+                    link_exe,
+                    "/nologo",
+                    "/subsystem:windowsce,3.00",
+                    "/MACHINE:" .. machine,
+                    "/libpath:" .. path.join(s, "lib", arch),
+                    "/out:" .. path.absolute(targetfile)
+                }
+
+                if target:is_shared() then
+                    table.insert(argv, "/dll")
+                end
+
+                local ldflags = table.wrap(target:get("ldflags"))
+                local has_entry = false
+                for _, f in ipairs(ldflags) do
+                    if f:lower():find("^/entry:") or f:lower():find("^-entry:") then
+                        has_entry = true
+                    end
+                    table.insert(argv, f)
+                end
+
+                local custom_entry = target:values("forge.evc3.entry") or target:values("evc3.entry") or target:data("evc3.entry")
+                if custom_entry and not has_entry then
+                    table.insert(argv, "/entry:" .. custom_entry)
+                    has_entry = true
+                end
+
+                if not has_entry and target:is_binary() then
+                    -- Standard Windows CE GUI apps enter via WinMainCRTStartup (which invokes WinMain).
+                    -- Console/CLI applications with a standard main() should specify /entry:mainACRTStartup
+                    -- via set_values("evc3.entry", "mainACRTStartup") or add_ldflags("/entry:mainACRTStartup").
+                    table.insert(argv, "/entry:WinMainCRTStartup")
+                end
+
+                for _, obj in ipairs(objs) do
+                    table.insert(argv, path.absolute(obj))
+                end
+
+                for _, linkdir in ipairs(table.wrap(target:get("linkdirs"))) do
+                    table.insert(argv, "/libpath:" .. path.absolute(linkdir))
+                end
+
+                for _, link in ipairs(table.wrap(target:get("links"))) do
+                    local libname = link:endswith(".lib") and link or (link .. ".lib")
+                    table.insert(argv, libname)
+                end
+
+                table.insert(argv, "coredll.lib")
+                table.insert(argv, "corelibc.lib")
+
+                local tag = target:is_shared() and "linking.evc3.dll" or "linking.evc3"
+                batchcmds:show_progress(opt.progress, "${color.build.target}%s (%s) %s", tag, arch, targetfile)
+                if wibo then
+                    batchcmds:vrunv(wibo, argv, {envs = envs, curdir = os.projectdir()})
+                else
+                    table.remove(argv, 1)
+                    batchcmds:vrunv(link_exe, argv, {envs = envs, curdir = os.projectdir()})
+                end
+            else
+                local lib_exe = path.join(s, "bin", "lib.exe")
+                local argv = {
+                    lib_exe,
+                    "/nologo",
+                    "/out:" .. path.absolute(targetfile)
+                }
+                for _, obj in ipairs(objs) do
+                    table.insert(argv, path.absolute(obj))
+                end
+
+                batchcmds:show_progress(opt.progress, "${color.build.target}archiving.evc3 (%s) %s", arch, targetfile)
+                if wibo then
+                    batchcmds:vrunv(wibo, argv, {envs = envs, curdir = os.projectdir()})
+                else
+                    table.remove(argv, 1)
+                    batchcmds:vrunv(lib_exe, argv, {envs = envs, curdir = os.projectdir()})
+                end
             end
-
-            batchcmds:vrunv("ar", argv, {curdir = os.projectdir()})
         end)
 end
 

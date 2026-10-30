@@ -2,25 +2,33 @@
 -- Rule: Open Watcom v2 C Compiler, Linker & Archiver (DOS 32-bit & OS/2 Warp)
 -- Native Xmake batchcmds execution (no external shell/python wrappers)
 
+local function get_target_objectfiles(target)
+    local objs = {}
+    local raw_objs = target:objectfiles()
+    if raw_objs and #raw_objs > 0 then
+        for _, obj in ipairs(raw_objs) do
+            table.insert(objs, obj)
+        end
+    else
+        for _, src in ipairs(table.wrap(target:sourcefiles())) do
+            if src:endswith(".c") or src:endswith(".cpp") or src:endswith(".cc") or src:endswith(".cxx") then
+                table.insert(objs, target:objectfile(src))
+            end
+        end
+    end
+    return table.unique(objs)
+end
+
 local function setup_watcom_rule(rule_name)
     rule(rule_name)
         set_extensions(".c", ".cc", ".cpp", ".cxx")
 
         on_load(function (target)
-            import("modules.sdk", {rootdir = path.join(os.scriptdir(), "../..")})
-            local sdkdir = sdk.find("watcom", "WATCOM", {fallbacks = "C:\\WATCOM"})
+            import("modules.detect.watcom", {rootdir = path.join(os.scriptdir(), "../..")})
+            local sdkdir = watcom.find_sdk("WATCOM")
             target:data_set("watcom.sdk", sdkdir)
 
-            local bindir = path.join(sdkdir, "binl64")
-            if not os.isdir(bindir) then
-                bindir = path.join(sdkdir, "binl")
-            end
-            if not os.isdir(bindir) then
-                bindir = path.join(sdkdir, "binnt64")
-            end
-            if not os.isdir(bindir) then
-                bindir = path.join(sdkdir, "binnt")
-            end
+            local bindir = watcom.find_bindir(sdkdir)
             target:data_set("watcom.bindir", bindir)
 
             local target_sys = target:data("watcom.target")
@@ -35,30 +43,21 @@ local function setup_watcom_rule(rule_name)
         end)
 
         on_buildcmd_file(function (target, batchcmds, sourcefile, opt)
+            import("modules.detect.watcom", {rootdir = path.join(os.scriptdir(), "../..")})
             local sdkdir = target:data("watcom.sdk")
             local bindir = target:data("watcom.bindir")
             local owcc = path.join(bindir, "owcc")
             local target_sys = target:data("watcom.target") or "dos32a"
 
             local objfile = target:objectfile(sourcefile)
-            table.insert(target:objectfiles(), objfile)
 
-            local inc_target = (target_sys == "os2v2") and path.join(sdkdir, "h/os2") or path.join(sdkdir, "h/dos")
-            local inc_base = path.join(sdkdir, "h")
+            -- Deduplicated registration into target:objectfiles()
+            local current_objs = target:objectfiles()
+            if current_objs and not table.contains(current_objs, objfile) then
+                table.insert(current_objs, objfile)
+            end
 
-            local pathes = {bindir}
-            local binw = path.join(sdkdir, "binw")
-            if os.isdir(binw) then table.insert(pathes, binw) end
-            local binp = path.join(sdkdir, "binp")
-            if os.isdir(binp) then table.insert(pathes, binp) end
-            if os.getenv("PATH") then table.insert(pathes, os.getenv("PATH")) end
-
-            local envs = {
-                WATCOM = sdkdir,
-                EDPATH = path.join(sdkdir, "eddat"),
-                PATH = table.concat(pathes, path.envsep()),
-                INCLUDE = inc_base .. path.envsep() .. inc_target
-            }
+            local envs = watcom.get_env(sdkdir, target_sys)
 
             local is_cxx = sourcefile:endswith(".cpp") or sourcefile:endswith(".cc") or sourcefile:endswith(".cxx")
             local argv = {
@@ -103,18 +102,18 @@ local function setup_watcom_rule(rule_name)
                 table.insert(argv, "-Wall")
             end
 
-            -- Includedirs
+            -- Preprocessor defines
+            for _, def in ipairs(table.wrap(target:get("defines"))) do
+                table.insert(argv, "-D" .. def)
+            end
+
+            -- Header search paths
             local incdirs = table.join(table.wrap(target:get("includedirs")), table.wrap(target:get("sysincludedirs")))
             for _, inc in ipairs(incdirs) do
                 table.insert(argv, "-I" .. path.absolute(inc))
             end
 
-            -- Defines
-            for _, def in ipairs(table.wrap(target:get("defines"))) do
-                table.insert(argv, "-D" .. def)
-            end
-
-            -- Target cxflags, cflags, cxxflags
+            -- Custom compiler flags
             for _, flag in ipairs(table.wrap(target:get("cxflags"))) do
                 table.insert(argv, flag)
             end
@@ -128,86 +127,64 @@ local function setup_watcom_rule(rule_name)
                 end
             end
 
+            -- Header dependency tracking via -MMD -MF
+            local depfile = target:dependfile(objfile)
+            table.insert(argv, "-MMD")
+            table.insert(argv, "-MF")
+            table.insert(argv, depfile)
+
             table.insert(argv, "-c")
             table.insert(argv, "-o")
             table.insert(argv, path.absolute(objfile))
-
-            -- Autodependency tracking via -MMD -MF
-            local depfile = target:dependfile(objfile) .. ".d"
-            table.insert(argv, "-MMD")
-            table.insert(argv, "-MF")
-            table.insert(argv, path.absolute(depfile))
 
             local rel_source = path.relative(sourcefile, os.projectdir())
             table.insert(argv, rel_source)
 
             batchcmds:mkdir(path.directory(objfile))
             batchcmds:mkdir(path.directory(depfile))
+
             local comp_tag = is_cxx and "compiling.watcom.c++" or "compiling.watcom"
             batchcmds:show_progress(opt.progress, "${color.build.object}%s (%s) %s", comp_tag, target_sys, rel_source)
             batchcmds:vrunv(owcc, argv, {envs = envs, curdir = os.projectdir()})
 
-            -- Header dependency tracking
-            local depfiles = {sourcefile}
-            if os.isfile(depfile) then
-                local parse_deps = import("core.tools.gcc.parse_deps", {anonymous = true})
-                local content = io.readfile(depfile)
-                if content and parse_deps then
-                    local parsed = parse_deps(content, os.projectdir())
-                    if parsed then
-                        for _, d in ipairs(parsed) do
-                            local d_abs = path.is_absolute(d) and d or path.join(os.projectdir(), d)
-                            if d_abs ~= path.absolute(objfile) and d_abs ~= path.absolute(sourcefile) and os.isfile(d_abs) then
-                                table.insert(depfiles, d_abs)
-                            end
-                        end
+            -- Register dependency files
+            local function parse_deps(dfile)
+                if not os.isfile(dfile) then return {} end
+                local content = io.readfile(dfile)
+                if not content then return {} end
+                content = content:gsub("\\\r?\n", " ")
+                local colon = content:find(":")
+                if colon then
+                    content = content:sub(colon + 1)
+                end
+                local files = {}
+                for item in content:gmatch("%S+") do
+                    if os.isfile(item) then
+                        table.insert(files, item)
                     end
                 end
-            else
-                -- Fallback scan for direct local headers before first build
-                for line in io.lines(sourcefile) do
-                    local inc = line:match('^%s*#%s*include%s*["<]([^">]+)[">]')
-                    if inc then
-                        local src_dir = path.directory(sourcefile)
-                        local candidate = path.join(src_dir, inc)
-                        if os.isfile(candidate) then
-                            table.insert(depfiles, candidate)
-                        else
-                            for _, d in ipairs(incdirs) do
-                                candidate = path.join(d, inc)
-                                if os.isfile(candidate) then
-                                    table.insert(depfiles, candidate)
-                                    break
-                                end
-                            end
-                        end
-                    end
-                end
+                return files
+            end
+
+            local depfiles = parse_deps(depfile)
+            if #depfiles == 0 then
+                table.insert(depfiles, sourcefile)
             end
 
             batchcmds:add_depfiles(table.unpack(depfiles))
             batchcmds:set_depmtime(os.mtime(objfile))
-            batchcmds:set_depcache(target:dependfile(objfile))
+            batchcmds:set_depcache(depfile)
         end)
 
         on_linkcmd(function (target, batchcmds, opt)
+            import("modules.detect.watcom", {rootdir = path.join(os.scriptdir(), "../..")})
             local sdkdir = target:data("watcom.sdk")
             local bindir = target:data("watcom.bindir")
-            local target_sys = target:data("watcom.target") or (target:is_plat("os2") and "os2v2" or "dos32a")
+            local target_sys = target:data("watcom.target") or "dos32a"
             local targetfile = target:targetfile()
 
-            local pathes = {bindir}
-            local binw = path.join(sdkdir, "binw")
-            if os.isdir(binw) then table.insert(pathes, binw) end
-            local binp = path.join(sdkdir, "binp")
-            if os.isdir(binp) then table.insert(pathes, binp) end
-            if os.getenv("PATH") then table.insert(pathes, os.getenv("PATH")) end
-
-            local envs = {
-                WATCOM = sdkdir,
-                EDPATH = path.join(sdkdir, "eddat"),
-                PATH = table.concat(pathes, path.envsep())
-            }
+            local envs = watcom.get_env(sdkdir, target_sys)
+            local objs = get_target_objectfiles(target)
 
             batchcmds:mkdir(path.directory(targetfile))
 
@@ -218,7 +195,7 @@ local function setup_watcom_rule(rule_name)
                     "-o", path.absolute(targetfile)
                 }
 
-                for _, obj in ipairs(target:objectfiles()) do
+                for _, obj in ipairs(objs) do
                     table.insert(argv, path.absolute(obj))
                 end
                 for _, linkdir in ipairs(table.wrap(target:get("linkdirs"))) do
@@ -244,7 +221,7 @@ local function setup_watcom_rule(rule_name)
                     "-o", path.absolute(targetfile)
                 }
 
-                for _, obj in ipairs(target:objectfiles()) do
+                for _, obj in ipairs(objs) do
                     table.insert(argv, path.absolute(obj))
                 end
                 for _, linkdir in ipairs(table.wrap(target:get("linkdirs"))) do
@@ -265,7 +242,7 @@ local function setup_watcom_rule(rule_name)
             else
                 local wlib = path.join(bindir, "wlib")
                 local argv = {"-q", "-b", "-c", "-n", path.absolute(targetfile)}
-                for _, obj in ipairs(target:objectfiles()) do
+                for _, obj in ipairs(objs) do
                     table.insert(argv, "+" .. path.absolute(obj))
                 end
 

@@ -1,0 +1,43 @@
+name: CI
+
+on:
+  push:
+    branches: ["*"]
+  pull_request:
+    branches: ["*"]
+
+jobs:
+  test:
+    name: Test on ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Xmake
+        uses: xmake-io/github-action-setup-xmake@v1
+        with:
+          xmake-version: 3.1.2
+
+      - name: Verify Xmake Version
+        run: xmake --version
+
+      - name: Run Test Suite (xmake test)
+        run: xmake test
+
+      - name: Run Direct Test Runner (xmake l tests/run.lua)
+        run: xmake l tests/run.lua
+
+      - name: Verify Forge CLI Plugin (list, env & json export)
+        run: |
+          xmake forge list
+          xmake forge env
+          JSON_OUT=$(xmake forge env --json)
+          echo "$JSON_OUT"
+          echo "$JSON_OUT" | grep -q "LUA_PATH"
+          echo "$JSON_OUT" | grep -q "LUA_CPATH"

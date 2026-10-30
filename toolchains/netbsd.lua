@@ -8,12 +8,12 @@ toolchain("netbsd")
     set_description("NetBSD Native & Cross-Compilation SDK Toolchain")
 
     on_check(function (toolchain)
-        if os.host() == "netbsd" then
-            return true
-        end
         import("modules.detect.bsd", {rootdir = path.join(os.scriptdir(), "..")})
         import("modules.sdk", {rootdir = path.join(os.scriptdir(), "..")})
         local arch = bsd.normalize_arch(toolchain:arch())
+        if os.host() == "netbsd" and arch == bsd.normalize_arch(os.arch(), "netbsd") then
+            return true
+        end
         if bsd.is_available("netbsd", arch) then
             return true
         end
@@ -24,7 +24,7 @@ toolchain("netbsd")
         import("modules.detect.bsd", {rootdir = path.join(os.scriptdir(), "..")})
         local arch = bsd.normalize_arch(toolchain:arch())
 
-        if os.host() == "netbsd" then
+        if os.host() == "netbsd" and arch == bsd.normalize_arch(os.arch(), "netbsd") then
             local find_tool = import("lib.detect.find_tool")
             local cc = find_tool("gcc") or find_tool("clang") or find_tool("cc")
             local cxx = find_tool("g++") or find_tool("clang++") or find_tool("c++")
