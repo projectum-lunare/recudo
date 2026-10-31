@@ -38,6 +38,8 @@ function module_search_envs(ext)
         LUA_PATH = {
             "share/lua/?.lua",
             "share/lua/?/init.lua",
+            "share/lua/5.1/?.lua",
+            "share/lua/5.1/?/init.lua",
             "share/lua/5.4/?.lua",
             "share/lua/5.4/?/init.lua",
             "share/lua/5.5/?.lua",
@@ -45,6 +47,7 @@ function module_search_envs(ext)
         },
         LUA_CPATH = {
             "lib/?" .. ext,
+            "lib/lua/5.1/?" .. ext,
             "lib/lua/5.4/?" .. ext,
             "lib/lua/5.5/?" .. ext
         }
