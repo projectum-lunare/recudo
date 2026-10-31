@@ -3,7 +3,7 @@
 -- Mozilla Public License Version 2.0
 
 set_project("forge")
-set_version("0.1.0")
+set_version("0.1.2")
 set_xmakever("2.8.5")
 
 includes("includes/forge.lua")
