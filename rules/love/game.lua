@@ -142,12 +142,11 @@ local function find_game_dir(target)
     return path.join(os.projectdir(), "src")
 end
 
-local function get_native_modules(target)
+local function get_native_modules(target, lua_module)
     local modules = {}
     local seen = {}
 
     -- 1. Discover dynamically via Forge's Lua module tree and package manifests
-    local lua_module = import("lua.module", {anonymous = true})
     if lua_module and lua_module.roots_of and lua_module.bundle_sources then
         local roots = lua_module.roots_of(target)
         local bundled = lua_module.bundle_sources(roots)
@@ -180,6 +179,7 @@ end
 
 local function setup_love_rule(rule_name)
     rule(rule_name)
+        add_deps("c++")
         set_extensions(".lua")
 
         on_load(function (target)
@@ -209,16 +209,13 @@ local function setup_love_rule(rule_name)
                     target:fileconfig_set(sourcefile, {rules = rule_name})
                 end
             end
-
-            -- Register generated launcher source file
-            local launcher_cpp = path.join(target:autogendir(), "love_launcher.cpp")
-            target:add("files", launcher_cpp)
         end)
 
         before_buildcmd_files(function (target, batchcmds, sourcebatch, opt)
             import("template", {rootdir = path.join(os.scriptdir(), "../../modules")})
+            local lua_module = import("lua.module", {anonymous = true})
 
-            local native_modules = get_native_modules(target)
+            local native_modules = get_native_modules(target, lua_module)
             local render = template.compile(LAUNCHER_TEMPLATE)
             local content = render({native_modules = native_modules})
 
@@ -227,6 +224,17 @@ local function setup_love_rule(rule_name)
             if old_content ~= content then
                 io.writefile(launcher_cpp, content)
             end
+
+            local objfile = target:objectfile(launcher_cpp)
+            table.insert(target:objectfiles(), objfile)
+
+            batchcmds:mkdir(path.directory(launcher_cpp))
+            batchcmds:mkdir(path.directory(objfile))
+            batchcmds:show_progress(opt.progress, "${color.build.target}compiling.love_launcher %s", path.relative(launcher_cpp, os.projectdir()))
+            batchcmds:compile(launcher_cpp, objfile)
+            batchcmds:add_depfiles(sourcebatch.sourcefiles)
+            batchcmds:set_depmtime(os.mtime(objfile))
+            batchcmds:set_depcache(target:dependfile(objfile))
         end)
 
         after_build(function (target)
@@ -234,7 +242,7 @@ local function setup_love_rule(rule_name)
 
             local is_fused = target:values("love.fused")
             if is_fused == nil then
-                is_fused = (target:mode() == "release")
+                is_fused = is_mode("release")
             end
 
             if not is_fused then
@@ -252,8 +260,8 @@ local function setup_love_rule(rule_name)
             end
 
             -- Pack game files and bundled Lua modules into a temporary zip
-            local temp_zip = path.join(target:autogendir(), "game_bundle.zip")
-            local stage_dir = path.join(target:autogendir(), "game_stage")
+            local temp_zip = path.absolute(path.join(target:autogendir(), "game_bundle.zip"))
+            local stage_dir = path.absolute(path.join(target:autogendir(), "game_stage"))
             os.rm(temp_zip)
             os.rm(stage_dir)
             os.mkdir(stage_dir)
@@ -274,7 +282,7 @@ local function setup_love_rule(rule_name)
 
             local ok = try {
                 function ()
-                    archive.archive(temp_zip, "*", {curdir = stage_dir, recurse = true})
+                    archive.archive(temp_zip, ".", {curdir = stage_dir, recurse = true})
                     return true
                 end
             }
@@ -302,7 +310,7 @@ local function setup_love_rule(rule_name)
 
             local is_fused = target:values("love.fused")
             if is_fused == nil then
-                is_fused = (target:mode() == "release")
+                is_fused = is_mode("release")
             end
 
             if is_fused then
