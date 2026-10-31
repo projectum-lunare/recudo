@@ -251,16 +251,35 @@ local function setup_love_rule(rule_name)
                 return
             end
 
-            -- Pack game files into a temporary zip
+            -- Pack game files and bundled Lua modules into a temporary zip
             local temp_zip = path.join(target:autogendir(), "game_bundle.zip")
+            local stage_dir = path.join(target:autogendir(), "game_stage")
             os.rm(temp_zip)
+            os.rm(stage_dir)
+            os.mkdir(stage_dir)
+            os.cp(path.join(gamedir, "*"), stage_dir)
+
+            local lua_module = import("lua.module", {anonymous = true})
+            if lua_module and lua_module.roots_of and lua_module.bundle_sources then
+                local roots = lua_module.roots_of(target)
+                local bundled = lua_module.bundle_sources(roots)
+                for abs, rel in pairs(bundled.file_map or {}) do
+                    local dst = path.join(stage_dir, rel)
+                    if not os.isfile(dst) then
+                        os.mkdir(path.directory(dst))
+                        os.cp(abs, dst)
+                    end
+                end
+            end
 
             local ok = try {
                 function ()
-                    archive.archive(temp_zip, "*", {curdir = gamedir, recurse = true})
+                    archive.archive(temp_zip, "*", {curdir = stage_dir, recurse = true})
                     return true
                 end
             }
+
+            os.rm(stage_dir)
 
             if ok and os.isfile(temp_zip) then
                 local bin_data = io.readfile(targetfile, {encoding = "binary"})
@@ -292,7 +311,19 @@ local function setup_love_rule(rule_name)
                 local gamedir = find_game_dir(target)
                 local run_args = table.join({gamedir}, args)
                 cprint("${dim}==> [forge.love] Running: %s %s${clear}", targetfile, table.concat(run_args, " "))
-                os.execv(targetfile, run_args)
+
+                local run_envs = {}
+                local lua_module = import("lua.module", {anonymous = true})
+                if lua_module and lua_module.roots_of and lua_module.search_patterns then
+                    local roots = lua_module.roots_of(target)
+                    local patterns = lua_module.search_patterns(roots, "path")
+                    if #patterns > 0 then
+                        local cur_path = os.getenv("LUA_PATH") or ""
+                        run_envs.LUA_PATH = table.concat(patterns, ";") .. (cur_path ~= "" and (";" .. cur_path) or ";;")
+                    end
+                end
+
+                os.execv(targetfile, run_args, {envs = run_envs})
             end
         end)
 end
