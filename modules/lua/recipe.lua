@@ -26,6 +26,17 @@ end
 function install_project(package, configs)
     local xmake_tools = import("package.tools.xmake")
     local project = os.isfile("xmake.lua") and io.readfile("xmake.lua") or ""
+
+    -- Strip standalone repository/addon declarations during package build to
+    -- prevent recursive xmake locks and redundant network clones:
+    if project:find("add_addons", 1, true) or project:find("add_repositories", 1, true) then
+        local cleaned = project:gsub("add_addons%b()", ""):gsub("add_repositories%b()", "")
+        if cleaned ~= project then
+            io.writefile("xmake.lua", cleaned)
+            project = cleaned
+        end
+    end
+
     local envs = xmake_tools.buildenvs(package)
     if not project:find("/forge.lua", 1, true) and not project:find("\\forge.lua", 1, true) then
         local rc = os.tmpfile() .. ".lua"
