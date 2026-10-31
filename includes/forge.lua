@@ -1,22 +1,7 @@
 -- Projectum Lunare Forge - Unified Build, Toolchain & Cross-Compilation Addon
 -- Automatically exports platforms, rules, toolchains, modules and canonical architectures
 
--- 1. Register canonical default architectures for vintage & BSD platforms
-set_defaultarchs(
-    "amiga|m68k",
-    "atari|m68k",
-    "kolibri|i386",
-    "dos|i386",
-    "os2|i386",
-    "wince|arm",
-    "freebsd|x86_64",
-    "openbsd|x86_64",
-    "netbsd|x86_64",
-    "dragonflybsd|x86_64",
-    "dragonfly|x86_64"
-)
-
--- 2. Resolve forge addon root directory.
+-- Resolve forge addon root directory.
 -- A recipe build includes this file, so scriptdir is the addon includes
 -- directory. FORGE_LUA_ROOT covers a run where the text is prepended to the
 -- recipe and scriptdir would otherwise be the recipe directory.
@@ -25,7 +10,14 @@ if not rootdir or rootdir == "" then
     rootdir = path.directory(os.scriptdir())
 end
 
--- 3. Register platform definitions, addon modules and the local Lua package repository
+-- import() is not available while this file is loading. The include publishes
+-- the catalog helpers, then _dismiss() removes them from the project script.
+includes(path.join(rootdir, "modules/catalog.lua"))
+set_defaultarchs(table.unpack(default_archs()))
+local plat_is_static = is_static
+_dismiss()
+
+-- Register platform definitions, addon modules and the local Lua package repository
 add_platformdirs(path.join(rootdir, "platforms"))
 add_moduledirs(path.join(rootdir, "modules"))
 
@@ -35,9 +27,7 @@ add_moduledirs(path.join(rootdir, "modules"))
 local link_plat = get_config("plat") or os.host()
 local link_kind = get_config("kind") or "static"
 local link_shared = link_kind == "shared"
-if link_plat == "amiga" or link_plat == "atari" or link_plat == "kolibri"
-    or link_plat == "dos" or link_plat == "os2" or link_plat == "wince"
-    or link_plat == "wasm" then
+if plat_is_static(link_plat) then
     link_shared = false
 end
 add_requireconfs("**", {override = true, configs = {shared = link_shared}})
