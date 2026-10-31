@@ -280,26 +280,34 @@ local function setup_love_rule(rule_name)
                 end
             end
 
+            local err
             local ok = try {
                 function ()
                     archive.archive(temp_zip, ".", {curdir = stage_dir, recurse = true})
                     return true
-                end
+                end,
+                catch {
+                    function (errors)
+                        err = errors
+                    end
+                }
             }
 
             os.rm(stage_dir)
 
-            if ok and os.isfile(temp_zip) then
-                local bin_data = io.readfile(targetfile, {encoding = "binary"})
-                local zip_data = io.readfile(temp_zip, {encoding = "binary"})
-                io.writefile(targetfile, bin_data .. zip_data, {encoding = "binary"})
-                os.rm(temp_zip)
-
-                if not target:is_plat("windows") then
-                    try { function () os.runv("chmod", {"+x", targetfile}) end }
-                end
-                cprint("${green}[forge.love] Fused standalone game binary generated: %s${clear}", targetfile)
+            if not (ok and os.isfile(temp_zip)) then
+                raise("failed to pack game assets into zip bundle: %s", err or "unknown error")
             end
+
+            local bin_data = io.readfile(targetfile, {encoding = "binary"})
+            local zip_data = io.readfile(temp_zip, {encoding = "binary"})
+            io.writefile(targetfile, bin_data .. zip_data, {encoding = "binary"})
+            os.rm(temp_zip)
+
+            if not target:is_plat("windows") then
+                try { function () os.runv("chmod", {"+x", targetfile}) end }
+            end
+            cprint("${green}[forge.love] Fused standalone game binary generated: %s${clear}", targetfile)
         end)
 
         on_run(function (target)
