@@ -19,6 +19,7 @@ Instead of reinventing low-level DAG build graphs from scratch, Forge integrates
 - **Native Compiler Rules:** Direct execution of non-standard toolchains (`Open Watcom` v2 for DOS/OS2 via `owcc`/`wlib`, `Microsoft eVC 3.0` via `wibo`) using native Xmake batch commands without brittle shell/Python wrapper scripts.
 - **Cross-Platform SDK Detection:** Automatic resolution across Unix (`~/.local/opt/<sdk>`) and Windows (`%APPDATA%`, `%LOCALAPPDATA%`).
 - **First-Class Lua Subsystem (LuaRocks Alternative):** Native project management for pure Lua libraries, native C extensions (`.so`/`.dll` and static retro archives), portable executable launchers, monolithic single-binary bundlers, and zero-friction isolated environments (`LUA_PATH`/`LUA_CPATH`).
+- **LÖVE 2D Game Engine Integration:** Native `forge.love` rule for game development, dynamic C-extension preloading without boilerplate, fast local dev runs, and release-ready fused standalone binaries.
 - **Matrix Orchestration CLI:** High-level `xmake forge` tasks to audit, cross-compile, and benchmark builds across target architectures.
 
 ---
@@ -248,6 +249,35 @@ target("app")
 ```
 
 `repository/packages/f/forge-hello` and `forge-native` are the reference recipes. LPeg has no xmake project, so its recipe writes one at install time. A new recipe lives at `packages/<initial>/<name>/xmake.lua`. Another recipe tree is registered with `add_repositories("my-lua /path/to/repo")`.
+
+### 7. LÖVE 2D Game Engine Integration (`forge.love`)
+
+Forge provides first-class support for developing and distributing 2D games with the [LÖVE (Love2D)](https://love2d.org) engine (aliases: `forge.love.game`, `forge.lua.love`):
+
+```lua
+add_rules("mode.release", "mode.debug")
+
+target("my_game")
+    add_rules("forge.love")
+
+    -- Add native C modules from xmake-repo; automatically discovered & preloaded!
+    add_packages("lua-cjson", "lpeg")
+
+    -- Game sources and assets
+    add_files("src/**.lua")
+    add_files("assets/**")
+```
+
+#### Key Capabilities:
+- **Dynamic C Extension Preloading:** Automatically inspects package manifests (`share/forge/lua-modules.lua`) across target dependencies to register each native library into `package.preload` in a generated C++ launcher. No hardcoded module tables and no manual C++ boilerplate required.
+- **Fast Development Cycle (`xmake run`):** In debug/development mode, executes the game directly from `src/` with instant iteration.
+- **Standalone Fused Binary (`xmake -m release`):** Automatically packages Lua files and assets into a ZIP bundle and fuses it directly to the executable binary. Produces a single, self-contained native executable (`my_game` / `my_game.exe`) with no separate `.love` archive required for the end user.
+- **LuaJIT or PUC Lua Runtime:** Inherits the runtime configured in `packages/l/love` (`luajit` for maximum performance, or `lua 5.1` for PUC Lua compatibility).
+
+#### Target Values & Configuration:
+- `set_values("love.dir", "src")`: Explicit root directory containing `main.lua` (auto-detected by default).
+- `set_values("love.fused", true|false)`: Force fused binary generation on or off (defaults to `true` in release mode, `false` in debug mode).
+- `set_values("love.modules", {{name = "mymod", symbol = "luaopen_mymod"}})`: Manual registration for custom in-tree C modules.
 
 ---
 
