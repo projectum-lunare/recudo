@@ -27,6 +27,11 @@ function install_project(package, configs)
     local xmake_tools = import("package.tools.xmake")
     local project = os.isfile("xmake.lua") and io.readfile("xmake.lua") or ""
 
+    configs = configs or {}
+    if configs.kind == nil and package.config and package:config("shared") ~= nil then
+        configs.kind = package:config("shared") and "shared" or "static"
+    end
+
     -- Strip standalone repository/addon declarations during package build to
     -- prevent recursive xmake locks and redundant network clones:
     if project:find("add_addons", 1, true) or project:find("add_repositories", 1, true) then
