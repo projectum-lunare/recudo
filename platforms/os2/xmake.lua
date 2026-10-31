@@ -1,13 +1,4 @@
--- Projectum Lunare Forge
--- Platform: OS/2 32-bit Warp
-
-platform("os2")
-    set_os("os2")
-    set_hosts("linux", "windows", "macosx", "bsd")
-    set_archs("i386")
-
-    set_formats("static", "lib$(name).a")
-    set_formats("object", "$(name).o")
-    set_formats("binary", "$(name).exe")
-
-    set_toolchains("watcom")
+-- xmake loads platforms/<id>/xmake.lua. The description is modules/catalog.lua.
+_FORGE_ROOT = path.normalize(path.join(os.scriptdir(), "../.."))
+includes(path.join(_FORGE_ROOT, "platforms/define.lua"))
+define_platform("os2")

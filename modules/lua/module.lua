@@ -7,20 +7,10 @@
 
 -- Captured when this module is loaded. os.scriptdir() later follows the caller.
 local FORGE_ROOT = path.directory(path.directory(os.scriptdir()))
-
--- Platforms that cannot dlopen a Lua module. A dynamic project still links these statically.
-local STATIC_PLATS = {
-    amiga = true,
-    atari = true,
-    kolibri = true,
-    dos = true,
-    os2 = true,
-    wince = true,
-    wasm = true
-}
+local catalog = import("catalog", {rootdir = path.directory(os.scriptdir()), anonymous = true})
 
 function supports_dynamic(plat)
-    return not (plat and STATIC_PLATS[plat])
+    return not catalog.is_static(plat)
 end
 
 local MANIFEST_REL = "share/forge/lua-modules.lua"
@@ -127,7 +117,7 @@ function install_project(package, configs)
     local xmake_tools = import("package.tools.xmake")
     local project = os.isfile("xmake.lua") and io.readfile("xmake.lua") or ""
     local envs = xmake_tools.buildenvs(package)
-    if not project:find("forge.lua", 1, true) then
+    if not project:find("/forge.lua", 1, true) and not project:find("\\forge.lua", 1, true) then
         local rc = os.tmpfile() .. ".lua"
         local forge_lua = path.join(FORGE_ROOT, "includes", "forge.lua")
         io.writefile(rc, table.concat({

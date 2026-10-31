@@ -7,141 +7,22 @@ local rootdir = path.join(os.scriptdir(), "../../")
 import("core.base.option")
 import("modules.detect.bsd", {rootdir = rootdir})
 import("modules.sdk", {rootdir = rootdir})
+import("catalog", {rootdir = path.join(rootdir, "modules")})
 
-local host_os = os.host()
-local host_arch = os.arch()
-
-local order = {
-    "amiga", "atari", "kolibri", "dos", "os2", "wince",
-    "freebsd", "openbsd", "netbsd", "dragonflybsd",
-    "posix"
-}
-
-local aliases = {
-    atarist = "atari",
-    amigaos = "amiga",
-    kolibrios = "kolibri",
-    linux = "posix"
-}
-
-local bsd_ids = {
-    freebsd = true,
-    openbsd = true,
-    netbsd = true,
-    dragonflybsd = true
-}
-
-local targets = {
-    amiga = {
-        id = "amiga",
-        name = "AmigaOS Classic (m68k)",
-        plat = "amiga",
-        arch = "m68k",
-        toolchain = "amigaos",
-        sdk_name = "amigaos-sdk",
-        sdk_env = "AMIGA_SDK",
-        check_file = "bin/m68k-amigaos-gcc"
-    },
-    atari = {
-        id = "atari",
-        name = "Atari ST/STE/TT/Falcon (m68k)",
-        plat = "atari",
-        arch = "m68k",
-        toolchain = "atarist",
-        sdk_name = "atarist-sdk",
-        sdk_env = "ATARIST_SDK",
-        check_file = "bin/m68k-atari-mint-gcc"
-    },
-    kolibri = {
-        id = "kolibri",
-        name = "KolibriOS 32-bit (x86)",
-        plat = "kolibri",
-        arch = "i386",
-        toolchain = "kolibrios",
-        sdk_name = "kolibrios-sdk",
-        sdk_env = "KOLIBRI_SDK",
-        check_file = "bin/kos32-gcc"
-    },
-    dos = {
-        id = "dos",
-        name = "MS-DOS 32-bit Protected Mode (Watcom)",
-        plat = "dos",
-        arch = "i386",
-        toolchain = "watcom",
-        sdk_name = "watcom",
-        sdk_env = "WATCOM"
-    },
-    os2 = {
-        id = "os2",
-        name = "IBM OS/2 Warp 32-bit (Watcom)",
-        plat = "os2",
-        arch = "i386",
-        toolchain = "watcom",
-        sdk_name = "watcom",
-        sdk_env = "WATCOM"
-    },
-    wince = {
-        id = "wince",
-        name = "Microsoft Windows CE (eVC 3.0)",
-        plat = "wince",
-        arch = "arm",
-        toolchain = "evc3",
-        sdk_name = "evc3",
-        sdk_env = "EVC3_DIR"
-    },
-    freebsd = {
-        id = "freebsd",
-        name = "FreeBSD",
-        plat = "freebsd",
-        arch = "x86_64",
-        toolchain = "freebsd",
-        sdk_name = "freebsd-sdk",
-        sdk_env = "FREEBSD_SDK"
-    },
-    openbsd = {
-        id = "openbsd",
-        name = "OpenBSD",
-        plat = "openbsd",
-        arch = "x86_64",
-        toolchain = "openbsd",
-        sdk_name = "openbsd-sdk",
-        sdk_env = "OPENBSD_SDK"
-    },
-    netbsd = {
-        id = "netbsd",
-        name = "NetBSD",
-        plat = "netbsd",
-        arch = "x86_64",
-        toolchain = "netbsd",
-        sdk_name = "netbsd-sdk",
-        sdk_env = "NETBSD_SDK"
-    },
-    dragonflybsd = {
-        id = "dragonflybsd",
-        name = "DragonFly BSD",
-        plat = "dragonflybsd",
-        arch = "x86_64",
-        toolchain = "dragonflybsd",
-        sdk_name = "dragonflybsd-sdk",
-        sdk_env = "DRAGONFLY_SDK"
-    },
-    posix = {
-        id = "posix",
-        name = string.format("POSIX Host (%s / %s)", host_os, host_arch),
-        plat = host_os,
-        arch = host_arch,
-        toolchain = nil
-    }
-}
+local order = catalog.cli_order()
+local aliases = catalog.aliases()
+local targets = catalog.cli_targets()
 
 local function kind_of(t)
-    if t.id == "posix" then
+    if t.probe then
+        return t.probe
+    elseif t.id == "posix" then
         return "posix"
     elseif t.id == "dos" or t.id == "os2" then
         return "watcom"
     elseif t.id == "wince" then
         return "evc3"
-    elseif bsd_ids[t.id] then
+    elseif catalog.is_bsd(t.id) then
         return "bsd"
     elseif t.check_file then
         return "sdk"
@@ -168,9 +49,7 @@ local function lua_environment()
 end
 
 function is_host_compatible(plat, arch)
-    if not plat then return false end
-    local host = os.host()
-    if plat ~= host and not ((plat == "dragonfly" or plat == "dragonflybsd") and (host == "dragonfly" or host == "dragonflybsd")) then
+    if not catalog.same_os(plat, os.host()) then
         return false
     end
     local norm_host = bsd.normalize_arch(os.arch(), plat)
