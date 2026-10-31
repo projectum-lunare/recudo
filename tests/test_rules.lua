@@ -172,10 +172,10 @@ function main(T)
             local watcom_content = io.readfile("rules/watcom/xmake.lua")
             local evc3_content = io.readfile("rules/evc3/xmake.lua")
 
-            T.assert_true(watcom_content:find('get_target_objectfiles') ~= nil, "Watcom rule should define get_target_objectfiles")
+            T.assert_true(watcom_content:find('modules%.objectfiles') ~= nil, "Watcom rule should use the shared object file list")
             T.assert_true(watcom_content:find('table%.contains%(current_objs,%s*objfile%)') ~= nil, "Watcom rule should guard against duplicate objectfiles")
 
-            T.assert_true(evc3_content:find('get_target_objectfiles') ~= nil, "eVC3 rule should define get_target_objectfiles")
+            T.assert_true(evc3_content:find('modules%.objectfiles') ~= nil, "eVC3 rule should use the shared object file list")
             T.assert_true(evc3_content:find('table%.contains%(current_objs,%s*objfile%)') ~= nil, "eVC3 rule should guard against duplicate objectfiles")
         end
     })

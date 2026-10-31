@@ -306,123 +306,121 @@ function lua_libdir(target)
     return nil
 end
 
+local LUA_FALLBACK_VER = "5.4"
+
+local function lua_version(ver)
+    if ver then
+        return ver
+    end
+    local _, _, found = get_lua_version(find_lua())
+    return found or LUA_FALLBACK_VER
+end
+
+-- A group lists fixed patterns first. Patterns that contain {ver} then follow
+-- for the requested version, and again for 5.4 when that version differs.
+local function search_list(root, groups, ver, ext)
+    local items = {}
+    local function emit(rel, version)
+        rel = rel:gsub("{ver}", version or "")
+        rel = rel:gsub("{ext}", ext or "")
+        table.insert(items, path.join(root, rel))
+    end
+    for _, group in ipairs(groups) do
+        local versioned = {}
+        for _, rel in ipairs(group) do
+            if rel:find("{ver}", 1, true) then
+                table.insert(versioned, rel)
+            else
+                emit(rel)
+            end
+        end
+        for _, rel in ipairs(versioned) do
+            emit(rel, ver)
+        end
+        if #versioned > 0 and ver ~= LUA_FALLBACK_VER then
+            for _, rel in ipairs(versioned) do
+                emit(rel, LUA_FALLBACK_VER)
+            end
+        end
+    end
+    return items
+end
+
+local function finish_search(items, opt, kind, env_name)
+    append_package_patterns(items, opt.package_roots, kind)
+    local result = table.concat(items, ";")
+    if not opt.sandbox then
+        result = result .. ";;"
+    end
+    if not opt.sandbox and opt.inherit_env ~= false then
+        local inherited = os.getenv(env_name)
+        if inherited and #inherited > 0 then
+            result = result .. ";" .. inherited
+        end
+    end
+    return result
+end
+
+-- Project sources, then the staged tree, then vendored trees.
+local PATH_GROUPS = {
+    {
+        "src/?.lua",
+        "src/?/init.lua",
+        "lua/?.lua",
+        "lua/?/init.lua",
+        "?.lua",
+        "?/init.lua"
+    },
+    {
+        "build/lua/?.lua",
+        "build/lua/?/init.lua",
+        "build/lua/share/?.lua",
+        "build/lua/share/?/init.lua",
+        "build/lua/share/lua/{ver}/?.lua",
+        "build/lua/share/lua/{ver}/?/init.lua"
+    },
+    {
+        "vendor/?.lua",
+        "vendor/?/init.lua",
+        "vendor/share/lua/{ver}/?.lua",
+        "vendor/share/lua/{ver}/?/init.lua",
+        "lua_modules/share/lua/{ver}/?.lua",
+        "lua_modules/share/lua/{ver}/?/init.lua"
+    }
+}
+
+local CPATH_GROUPS = {
+    {
+        "build/lua/?.{ext}",
+        "build/lua/?/?.{ext}",
+        "build/lua/lib/?.{ext}",
+        "build/lua/lib/?/?.{ext}",
+        "build/lua/lib/lua/{ver}/?.{ext}",
+        "build/lua/lib/lua/{ver}/?/?.{ext}"
+    },
+    {
+        "vendor/lib/lua/{ver}/?.{ext}",
+        "vendor/lib/lua/{ver}/?/?.{ext}",
+        "lua_modules/lib/lua/{ver}/?.{ext}",
+        "lua_modules/lib/lua/{ver}/?/?.{ext}"
+    }
+}
+
 -- Get canonical LUA_PATH string for a project
 function get_lua_paths(projdir, ver, opt)
     ver, opt = normalize_path_opt(ver, opt)
     projdir = projdir or os.projectdir()
-    if not ver then
-        local lua_bin = find_lua()
-        local _, _, vstr = get_lua_version(lua_bin)
-        ver = vstr or "5.4"
-    end
-
-    local paths = {}
-
-    -- 1. Project local source patterns (immediate loading in dev mode)
-    table.insert(paths, path.join(projdir, "src/?.lua"))
-    table.insert(paths, path.join(projdir, "src/?/init.lua"))
-    table.insert(paths, path.join(projdir, "lua/?.lua"))
-    table.insert(paths, path.join(projdir, "lua/?/init.lua"))
-    table.insert(paths, path.join(projdir, "?.lua"))
-    table.insert(paths, path.join(projdir, "?/init.lua"))
-
-    -- 2. Staged build outputs (compiled / copied artifacts)
-    table.insert(paths, path.join(projdir, "build/lua/?.lua"))
-    table.insert(paths, path.join(projdir, "build/lua/?/init.lua"))
-    table.insert(paths, path.join(projdir, "build/lua/share/?.lua"))
-    table.insert(paths, path.join(projdir, "build/lua/share/?/init.lua"))
-    table.insert(paths, path.join(projdir, "build/lua/share/lua", ver, "?.lua"))
-    table.insert(paths, path.join(projdir, "build/lua/share/lua", ver, "?/init.lua"))
-    if ver ~= "5.4" then
-        table.insert(paths, path.join(projdir, "build/lua/share/lua/5.4/?.lua"))
-        table.insert(paths, path.join(projdir, "build/lua/share/lua/5.4/?/init.lua"))
-    end
-
-    -- 3. Vendored and local dependencies (vendor / lua_modules)
-    table.insert(paths, path.join(projdir, "vendor/?.lua"))
-    table.insert(paths, path.join(projdir, "vendor/?/init.lua"))
-    table.insert(paths, path.join(projdir, "vendor/share/lua", ver, "?.lua"))
-    table.insert(paths, path.join(projdir, "vendor/share/lua", ver, "?/init.lua"))
-    table.insert(paths, path.join(projdir, "lua_modules/share/lua", ver, "?.lua"))
-    table.insert(paths, path.join(projdir, "lua_modules/share/lua", ver, "?/init.lua"))
-    if ver ~= "5.4" then
-        table.insert(paths, path.join(projdir, "vendor/share/lua/5.4/?.lua"))
-        table.insert(paths, path.join(projdir, "vendor/share/lua/5.4/?/init.lua"))
-        table.insert(paths, path.join(projdir, "lua_modules/share/lua/5.4/?.lua"))
-        table.insert(paths, path.join(projdir, "lua_modules/share/lua/5.4/?/init.lua"))
-    end
-
-    -- 4. xmake packages installed by lua.module
-    append_package_patterns(paths, opt.package_roots, "path")
-
-    -- 5. A sandbox keeps only the project and its packages. `;;` would reopen the system path.
-    local path_str = table.concat(paths, ";")
-    if not opt.sandbox then
-        path_str = path_str .. ";;"
-    end
-    if not opt.sandbox and opt.inherit_env ~= false then
-        local user_lua_path = os.getenv("LUA_PATH")
-        if user_lua_path and #user_lua_path > 0 then
-            path_str = path_str .. ";" .. user_lua_path
-        end
-    end
-
-    return path_str
+    ver = lua_version(ver)
+    return finish_search(search_list(projdir, PATH_GROUPS, ver), opt, "path", "LUA_PATH")
 end
 
 -- Get canonical LUA_CPATH string for dynamic C extensions (.so / .dll)
 function get_lua_cpaths(projdir, ver, opt)
     ver, opt = normalize_path_opt(ver, opt)
     projdir = projdir or os.projectdir()
-    if not ver then
-        local lua_bin = find_lua()
-        local _, _, vstr = get_lua_version(lua_bin)
-        ver = vstr or "5.4"
-    end
-
-    local cpaths = {}
+    ver = lua_version(ver)
     local ext = (os.host() == "windows") and "dll" or "so"
-
-    -- 1. Project local build / staging directory
-    table.insert(cpaths, path.join(projdir, "build/lua/?." .. ext))
-    table.insert(cpaths, path.join(projdir, "build/lua/?/?." .. ext))
-    table.insert(cpaths, path.join(projdir, "build/lua/lib/?." .. ext))
-    table.insert(cpaths, path.join(projdir, "build/lua/lib/?/?." .. ext))
-    table.insert(cpaths, path.join(projdir, "build/lua/lib/lua", ver, "?." .. ext))
-    table.insert(cpaths, path.join(projdir, "build/lua/lib/lua", ver, "?/?." .. ext))
-    if ver ~= "5.4" then
-        table.insert(cpaths, path.join(projdir, "build/lua/lib/lua/5.4/?." .. ext))
-        table.insert(cpaths, path.join(projdir, "build/lua/lib/lua/5.4/?/?." .. ext))
-    end
-
-    -- 2. Vendored C modules
-    table.insert(cpaths, path.join(projdir, "vendor/lib/lua", ver, "?." .. ext))
-    table.insert(cpaths, path.join(projdir, "vendor/lib/lua", ver, "?/?." .. ext))
-    table.insert(cpaths, path.join(projdir, "lua_modules/lib/lua", ver, "?." .. ext))
-    table.insert(cpaths, path.join(projdir, "lua_modules/lib/lua", ver, "?/?." .. ext))
-    if ver ~= "5.4" then
-        table.insert(cpaths, path.join(projdir, "vendor/lib/lua/5.4/?." .. ext))
-        table.insert(cpaths, path.join(projdir, "vendor/lib/lua/5.4/?/?." .. ext))
-        table.insert(cpaths, path.join(projdir, "lua_modules/lib/lua/5.4/?." .. ext))
-        table.insert(cpaths, path.join(projdir, "lua_modules/lib/lua/5.4/?/?." .. ext))
-    end
-
-    -- 3. xmake packages installed by lua.module
-    append_package_patterns(cpaths, opt.package_roots, "cpath")
-
-    -- 4. A sandbox keeps only the project and its packages. `;;` would reopen the system path.
-    local cpath_str = table.concat(cpaths, ";")
-    if not opt.sandbox then
-        cpath_str = cpath_str .. ";;"
-    end
-    if not opt.sandbox and opt.inherit_env ~= false then
-        local user_lua_cpath = os.getenv("LUA_CPATH")
-        if user_lua_cpath and #user_lua_cpath > 0 then
-            cpath_str = cpath_str .. ";" .. user_lua_cpath
-        end
-    end
-
-    return cpath_str
+    return finish_search(search_list(projdir, CPATH_GROUPS, ver, ext), opt, "cpath", "LUA_CPATH")
 end
 
 -- Returns environment table { LUA_PATH = ..., LUA_CPATH = ... }

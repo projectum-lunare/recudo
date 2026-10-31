@@ -55,6 +55,10 @@ function main(T)
             T.assert_true(p:find("/tmp/test_project/src/%?%.lua", 1, false) ~= nil, "src/?.lua should be in LUA_PATH")
             T.assert_true(p:find("/tmp/test_project/build/lua/%?%.lua", 1, false) ~= nil, "build/lua/?.lua should be in LUA_PATH")
             T.assert_true(p:find(";;", 1, true) ~= nil, "LUA_PATH should end with ;; system fallback")
+            local newer = env.get_lua_paths("/tmp/test_project", "5.5")
+            local current = newer:find("/tmp/test_project/build/lua/share/lua/5%.5/%?%.lua", 1)
+            local fallback = newer:find("/tmp/test_project/build/lua/share/lua/5%.4/%?%.lua", 1)
+            T.assert_true(current ~= nil and fallback ~= nil and current < fallback, "5.4 patterns follow the requested version")
         end
     })
 

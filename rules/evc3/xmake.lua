@@ -2,30 +2,15 @@
 -- Rule: Microsoft Embedded Visual C++ 3.0 via wibo (Windows CE)
 -- Native Xmake batchcmds execution (no external shell/python wrappers)
 
-local function get_target_objectfiles(target)
-    local objs = {}
-    local raw_objs = target:objectfiles()
-    if raw_objs and #raw_objs > 0 then
-        for _, obj in ipairs(raw_objs) do
-            table.insert(objs, obj)
-        end
-    else
-        for _, src in ipairs(table.wrap(target:sourcefiles())) do
-            if src:endswith(".c") or src:endswith(".cpp") or src:endswith(".cc") or src:endswith(".cxx") then
-                table.insert(objs, target:objectfile(src))
-            end
-        end
-    end
-    return table.unique(objs)
-end
-
 local function setup_evc3_rule(rule_name)
     rule(rule_name)
         set_extensions(".c", ".cc", ".cpp", ".cxx")
 
         on_load(function (target)
-            import("modules.sdk", {rootdir = path.join(os.scriptdir(), "../..")})
-            local s = sdk.find("evc3", "EVC3_DIR")
+            local root = path.join(os.scriptdir(), "../..")
+            import("modules.sdk", {rootdir = root})
+            local entry = import("catalog", {rootdir = path.join(root, "modules")}).get("wince")
+            local s = sdk.find(entry.sdk_name, entry.sdk_env)
             target:data_set("evc3.sdk", s)
 
             local wibo_bin = os.getenv("WIBO_BIN")
@@ -238,7 +223,7 @@ local function setup_evc3_rule(rule_name)
             }
             local machine = machine_map[arch] or "ARM"
 
-            local objs = get_target_objectfiles(target)
+            local objs = import("modules.objectfiles", {rootdir = path.join(os.scriptdir(), "../..")}).collect(target)
 
             if target:is_binary() or target:is_shared() then
                 local link_exe = path.join(s, "bin", "link.exe")

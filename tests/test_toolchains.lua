@@ -102,6 +102,36 @@ function main(T)
             T.assert_equal(netbsd:get("installdir"), "/usr/pkg")
             T.assert_true(listed(netbsd:archs(), "vax"))
             T.assert_equal(platform.load("dragonflybsd", "x86_64"):os(), "dragonfly")
+            local dragonfly = platform.load("dragonfly", "x86_64")
+            T.assert_equal(dragonfly:os(), "dragonfly")
+            T.assert_equal(dragonfly:get("toolchains"), "dragonflybsd")
+        end
+    })
+
+    table.insert(tests, {
+        name = "toolchain scripts take SDK identity from the catalog",
+        func = function ()
+            local function uses_catalog(file, hardcoded)
+                local content = io.readfile(file)
+                T.assert_not_nil(content, file)
+                T.assert_true(content:find("catalog.lua", 1, true) ~= nil, file .. " should include the catalog")
+                for _, word in ipairs(hardcoded) do
+                    T.assert_true(content:find(word, 1, true) == nil, file .. " still hardcodes " .. word)
+                end
+            end
+            uses_catalog("toolchains/bsd.lua", {
+                "freebsd-sdk", "FREEBSD_SDK",
+                "openbsd-sdk", "OPENBSD_SDK",
+                "netbsd-sdk", "NETBSD_SDK",
+                "dragonflybsd-sdk", "DRAGONFLY_SDK"
+            })
+            uses_catalog("toolchains/kolibrios.lua", {"\"kolibrios-sdk\"", "\"KOLIBRI_SDK\"", "\"bin/kos32-gcc\""})
+            uses_catalog("toolchains/watcom.lua", {"is_available(\"WATCOM\")", "find_sdk(\"WATCOM\""})
+            uses_catalog("toolchains/evc3.lua", {"EVC3_DIR"})
+            T.assert_equal(catalog.get("freebsd").sdk_env, "FREEBSD_SDK")
+            T.assert_equal(catalog.get("kolibri").check_file, "bin/kos32-gcc")
+            T.assert_equal(catalog.get("dos").sdk_name, "watcom")
+            T.assert_equal(catalog.get("wince").sdk_env, "EVC3_DIR")
         end
     })
 
