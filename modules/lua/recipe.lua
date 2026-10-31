@@ -48,20 +48,66 @@ function lua_test(package, expr)
     if package:is_cross() then
         return
     end
-    local function lua_list(name)
-        local value = os.getenv(name)
-        if not value or package:is_plat("windows", "mingw") then
-            return value
+
+    local ext = package:is_plat("windows", "mingw") and ".dll" or ".so"
+    local search = module_search_envs(ext)
+    local lua_paths = {}
+    local lua_cpaths = {}
+
+    local function add_package_paths(pkg)
+        local dir = pkg.installdir and pkg:installdir()
+        if dir and os.isdir(dir) then
+            local note = path.join(dir, "share/forge/lua-search.lua")
+            local data = os.isfile(note) and io.load(note) or nil
+            local envs = type(data) == "table" and data.envs or search
+            for _, p in ipairs(table.wrap(envs.LUA_PATH)) do
+                local full = path.normalize(path.join(dir, p))
+                if not table.contains(lua_paths, full) then
+                    table.insert(lua_paths, full)
+                end
+            end
+            for _, p in ipairs(table.wrap(envs.LUA_CPATH)) do
+                local full = path.normalize(path.join(dir, p))
+                if not table.contains(lua_cpaths, full) then
+                    table.insert(lua_cpaths, full)
+                end
+            end
         end
-        value = value:gsub(":", ";")
-        if not value:endswith(";;") then
-            value = value .. ";;"
-        end
-        return value
     end
+
+    add_package_paths(package)
+    if package.orderdeps then
+        for _, dep in ipairs(table.wrap(package:orderdeps())) do
+            add_package_paths(dep)
+        end
+    end
+
+    local function lua_list(name, extra)
+        local cur = os.getenv(name)
+        local list = {}
+        for _, p in ipairs(extra) do
+            table.insert(list, p)
+        end
+        if cur then
+            if not package:is_plat("windows", "mingw") then
+                cur = cur:gsub(":", ";")
+            end
+            for p in cur:gmatch("[^;]+") do
+                if path.is_absolute(p) and not table.contains(list, p) then
+                    table.insert(list, p)
+                end
+            end
+        end
+        local result = table.concat(list, ";")
+        if not result:endswith(";;") then
+            result = result .. ";;"
+        end
+        return result
+    end
+
     os.vrunv("lua", {"-e", expr}, {envs = {
-        LUA_PATH = lua_list("LUA_PATH"),
-        LUA_CPATH = lua_list("LUA_CPATH")
+        LUA_PATH = lua_list("LUA_PATH", lua_paths),
+        LUA_CPATH = lua_list("LUA_CPATH", lua_cpaths)
     }})
 end
 
