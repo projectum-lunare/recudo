@@ -110,8 +110,8 @@ local function append_package_patterns(items, roots, kind)
     if not roots or #roots == 0 then
         return
     end
-    local lua_module = import("lua.module", {anonymous = true})
-    for _, pattern in ipairs(lua_module.search_patterns(roots, kind)) do
+    local tree = import("lua.tree", {anonymous = true})
+    for _, pattern in ipairs(tree.search_patterns(roots, kind)) do
         table.insert(items, pattern)
     end
 end
@@ -150,7 +150,7 @@ function private_lua(target)
     if not target or not target.orderpkgs then
         return nil
     end
-    local lua_module = import("lua.module", {anonymous = true})
+    local tree = import("lua.tree", {anonymous = true})
     local function from_pkg(pkg)
         if not pkg or not pkg.installdir then
             return nil
@@ -158,7 +158,7 @@ function private_lua(target)
         if is_lua_pkg(pkg) then
             return program_in(pkg)
         end
-        local runtime = lua_module.load_runtime(pkg:installdir({readonly = true}))
+        local runtime = tree.load_runtime(pkg:installdir({readonly = true}))
         if runtime then
             return program_in_dir(runtime.installdir)
         end
@@ -178,8 +178,8 @@ function private_lua(target)
             return found
         end
     end
-    for _, root in ipairs(lua_module.roots_of(target)) do
-        local runtime = lua_module.load_runtime(root)
+    for _, root in ipairs(tree.roots_of(target)) do
+        local runtime = tree.load_runtime(root)
         if runtime then
             local prog = program_in_dir(runtime.installdir)
             if prog then
@@ -249,11 +249,11 @@ function stage_sandbox(target, destdir, roots)
         end
     end
 
-    local lua_module = import("lua.module", {anonymous = true})
+    local tree = import("lua.tree", {anonymous = true})
     local luavers = {}
     local cexts = {}
     for _, root in ipairs(roots or {}) do
-        local manifest = lua_module.load_manifest(root)
+        local manifest = tree.load_manifest(root)
         if manifest then
             if manifest.luaver then
                 luavers[manifest.luaver] = true
