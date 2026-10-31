@@ -9,7 +9,7 @@ local detect_sdk = import("detect.sdk", {rootdir = path.join(os.scriptdir(), "..
 function find_sdk(env_name, opt)
     opt = opt or {}
     opt.fallbacks = opt.fallbacks or "C:\\WATCOM"
-    return detect_sdk.find("watcom", env_name or "WATCOM", opt)
+    return detect_sdk.find(opt.sdk_name or "watcom", env_name or "WATCOM", opt)
 end
 
 -- Resolve the host binary directory (binl64, binl, binnt64, binnt) containing owcc/wcl386

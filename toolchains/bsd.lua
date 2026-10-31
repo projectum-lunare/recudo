@@ -19,8 +19,6 @@ local specs = {
         description = "FreeBSD Native & Cross-Compilation SDK Toolchain",
         hosts = {"freebsd"},
         plat = "freebsd",
-        sdk_name = "freebsd-sdk",
-        sdk_env = "FREEBSD_SDK",
         sysroot_env = "FREEBSD_SYSROOT",
         sysroot_usr = true,
         clang_target = "-unknown-freebsd",
@@ -33,8 +31,6 @@ local specs = {
         description = "OpenBSD Native & Cross-Compilation SDK Toolchain",
         hosts = {"openbsd"},
         plat = "openbsd",
-        sdk_name = "openbsd-sdk",
-        sdk_env = "OPENBSD_SDK",
         sysroot_env = "OPENBSD_SYSROOT",
         sysroot_usr = true,
         clang_target = "-unknown-openbsd",
@@ -50,8 +46,6 @@ local specs = {
         description = "NetBSD Native & Cross-Compilation SDK Toolchain",
         hosts = {"netbsd"},
         plat = "netbsd",
-        sdk_name = "netbsd-sdk",
-        sdk_env = "NETBSD_SDK",
         tooldir_env = "NETBSD_TOOLDIR",
         synthetic_suffix = "-netbsd-",
         sysroot_env = "NETBSD_SYSROOT",
@@ -64,8 +58,6 @@ local specs = {
         description = "DragonFly BSD Native & Cross-Compilation SDK Toolchain",
         hosts = {"dragonflybsd", "dragonfly"},
         plat = "dragonflybsd",
-        sdk_name = "dragonflybsd-sdk",
-        sdk_env = "DRAGONFLY_SDK",
         sysroot_env = "DRAGONFLY_SYSROOT",
         sysroot_usr = true,
         clang_target = "-unknown-dragonfly",
@@ -188,6 +180,12 @@ local function define(spec)
     end)
 end
 
+-- SDK directory and environment variable live in modules/catalog.lua.
+includes(path.join(os.scriptdir(), "../modules/catalog.lua"))
 for _, spec in ipairs(specs) do
+    local entry = get(spec.plat)
+    spec.sdk_name = entry.sdk_name
+    spec.sdk_env = entry.sdk_env
     define(spec)
 end
+_dismiss()

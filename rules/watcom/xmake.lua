@@ -12,30 +12,15 @@ local function append_flags(argv, flags)
     end
 end
 
-local function get_target_objectfiles(target)
-    local objs = {}
-    local raw_objs = target:objectfiles()
-    if raw_objs and #raw_objs > 0 then
-        for _, obj in ipairs(raw_objs) do
-            table.insert(objs, obj)
-        end
-    else
-        for _, src in ipairs(table.wrap(target:sourcefiles())) do
-            if src:endswith(".c") or src:endswith(".cpp") or src:endswith(".cc") or src:endswith(".cxx") then
-                table.insert(objs, target:objectfile(src))
-            end
-        end
-    end
-    return table.unique(objs)
-end
-
 local function setup_watcom_rule(rule_name)
     rule(rule_name)
         set_extensions(".c", ".cc", ".cpp", ".cxx")
 
         on_load(function (target)
-            import("modules.detect.watcom", {rootdir = path.join(os.scriptdir(), "../..")})
-            local sdkdir = watcom.find_sdk("WATCOM")
+            local root = path.join(os.scriptdir(), "../..")
+            import("modules.detect.watcom", {rootdir = root})
+            local entry = import("catalog", {rootdir = path.join(root, "modules")}).get("dos")
+            local sdkdir = watcom.find_sdk(entry.sdk_env, {sdk_name = entry.sdk_name})
             target:data_set("watcom.sdk", sdkdir)
 
             local bindir = watcom.find_bindir(sdkdir)
@@ -188,7 +173,7 @@ local function setup_watcom_rule(rule_name)
             local targetfile = target:targetfile()
 
             local envs = watcom.get_env(sdkdir, target_sys)
-            local objs = get_target_objectfiles(target)
+            local objs = import("modules.objectfiles", {rootdir = path.join(os.scriptdir(), "../..")}).collect(target)
 
             batchcmds:mkdir(path.directory(targetfile))
 
