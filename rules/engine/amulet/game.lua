@@ -94,7 +94,7 @@ int main(int argc, char *argv[]) {
 ]]
 
 local function find_game_dir(target)
-    local explicit = target:values("amulet.dir") or target:values("forge.amulet.dir")
+    local explicit = target:values("forge.engine.amulet.dir") or target:values("amulet.dir") or target:values("forge.amulet.dir")
     if explicit then
         return path.is_absolute(explicit) and explicit or path.join(os.projectdir(), explicit)
     end
@@ -136,8 +136,8 @@ local function get_native_modules(target, lua_module)
         end
     end
 
-    -- 2. User-declared custom modules via target:values("amulet.modules") or target:values("forge.amulet.modules")
-    local custom = target:values("amulet.modules") or target:values("forge.amulet.modules")
+    -- 2. User-declared custom modules via target:values("forge.engine.amulet.modules") or target:values("amulet.modules")
+    local custom = target:values("forge.engine.amulet.modules") or target:values("amulet.modules") or target:values("forge.amulet.modules")
     if custom then
         for _, mod in ipairs(table.wrap(custom)) do
             local name = mod.name
@@ -158,6 +158,7 @@ local function setup_amulet_rule(rule_name)
         set_extensions(".lua")
 
         on_load(function (target)
+            target:data_set("forge.engine.amulet", true)
             target:set("kind", "binary")
             target:set("languages", "c++11")
 
@@ -223,7 +224,10 @@ local function setup_amulet_rule(rule_name)
         after_build(function (target)
             import("utils.archive")
 
-            local is_fused = target:values("amulet.fused")
+            local is_fused = target:values("forge.engine.amulet.fused")
+            if is_fused == nil then
+                is_fused = target:values("amulet.fused")
+            end
             if is_fused == nil then
                 is_fused = is_mode("release")
             end
@@ -291,7 +295,10 @@ local function setup_amulet_rule(rule_name)
             local targetfile = path.absolute(target:targetfile())
             local args = option.get("arguments") or {}
 
-            local is_fused = target:values("amulet.fused")
+            local is_fused = target:values("forge.engine.amulet.fused")
+            if is_fused == nil then
+                is_fused = target:values("amulet.fused")
+            end
             if is_fused == nil then
                 is_fused = is_mode("release")
             end

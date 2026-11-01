@@ -249,7 +249,7 @@ local function setup_evc3_rule(rule_name)
                     table.insert(argv, f)
                 end
 
-                local custom_entry = target:values("forge.evc3.entry") or target:values("evc3.entry") or target:data("evc3.entry")
+                local custom_entry = target:values("forge.toolchain.evc3.entry") or target:values("forge.evc3.entry") or target:values("evc3.entry") or target:data("evc3.entry")
                 if custom_entry and not has_entry then
                     table.insert(argv, "/entry:" .. custom_entry)
                     has_entry = true
