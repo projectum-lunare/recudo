@@ -21,6 +21,8 @@ Instead of reinventing low-level DAG build graphs from scratch, Forge integrates
 - **First-Class Lua Subsystem (LuaRocks Alternative):** Native project management for pure Lua libraries, native C extensions (`.so`/`.dll` and static retro archives), portable executable launchers, monolithic single-binary bundlers, and zero-friction isolated environments (`LUA_PATH`/`LUA_CPATH`).
 - **LÖVE 2D Game Engine Integration:** Native `forge.love` rule for game development, dynamic C-extension preloading without boilerplate, fast local dev runs, and release-ready fused standalone binaries.
 - **Amulet Game Toolkit Integration:** Native `forge.amulet` rule for 2D/3D audio/visual games, dynamic C-extension preload hook into Amulet's runtime, instant development iteration, and standalone release bundle packaging (`data.pak`).
+- **Teal Typed Lua Integration:** Native `forge.teal` rule providing gradual static typing, strict type-checking, and transpilation into clean Lua.
+- **Nelua Systems Language Integration:** Native `forge.nelua` rule compiling statically-typed, meta-programmable systems code directly to ANSI/C99 (for vintage & modern toolchains) or clean Lua.
 - **Matrix Orchestration CLI:** High-level `xmake forge` tasks to audit, cross-compile, and benchmark builds across target architectures.
 
 ---
@@ -308,6 +310,49 @@ target("my_game")
 - `set_values("amulet.dir", "src")`: Explicit root directory containing `main.lua` (auto-detected by default).
 - `set_values("amulet.fused", true|false)`: Force `data.pak` packaging on or off (defaults to `true` in release mode, `false` in debug mode).
 - `set_values("amulet.modules", {{name = "mymod", symbol = "luaopen_mymod"}})`: Manual registration for custom in-tree C modules.
+
+### 9. Teal Typed Lua Integration (`forge.teal`)
+
+Forge provides first-class support for the [Teal](https://github.com/teal-language/tl) statically typed dialect of Lua (aliases: `forge.lua.teal`, `teal`):
+
+```lua
+target("my_typed_lib")
+    add_rules("forge.lua.module", "forge.teal")
+    add_files("src/**.tl")
+```
+
+#### Key Capabilities:
+- **Automatic Extension Binding (`.tl`):** Seamlessly recognizes `.tl` source files alongside `.lua` in modules and applications.
+- **Strict Static Type Checking:** Verifies types at compile time via `tl gen -c`, catching errors early in the build graph before runtime.
+- **Transpilation Pipeline:** Compiles typed Teal definitions into clean, standard Lua files placed in `build/lua/` and installed canonically into `share/lua/` and `lib/`.
+- **Target Options:**
+  - `set_values("forge.teal.check", false)`: Disable strict type validation if needed.
+  - `set_values("forge.teal.outdir", "custom/dir")`: Explicit custom destination for transpiled Lua code.
+
+### 10. Nelua Systems Language Integration (`forge.nelua`)
+
+Forge provides first-class integration for [Nelua](https://nelua.io/) (aliases: `nelua`), a statically typed, meta-programmable systems programming language heavily inspired by Lua that compiles to C and WebAssembly:
+
+```lua
+target("my_systems_app")
+    add_rules("forge.nelua")
+    add_files("src/*.nelua")
+```
+
+#### Key Capabilities:
+- **Direct Object Compilation via ANSI/C99:** Compiles `.nelua` source files into intermediate C code, and passes them straight into the target platform's C compiler (GCC, Clang, MSVC, Open Watcom, or eVC3). Enables running Nelua on modern desktop/server systems as well as vintage architectures (DOS, WinCE, Amiga).
+- **Dual Backend Support (C & Lua):** Supports compiling to native binaries/libraries or emitting clean Lua code:
+  ```lua
+  target("my_nelua_to_lua")
+      add_rules("forge.nelua")
+      set_values("forge.nelua.generator", "lua")
+      add_files("src/*.nelua")
+  ```
+- **Target Options & Flags:**
+  - `set_values("forge.nelua.generator", "c"|"lua")`: Backend generator to use (defaults to `"c"`).
+  - `set_values("forge.nelua.maximum_performance", true)`: Enable `-M` maximum performance optimizations.
+  - `set_values("forge.nelua.defines", {"MY_DEF=1"})`: Pass custom `-D` preprocessor definitions.
+  - `set_values("forge.nelua.pragmas", {"nogc"})`: Set initial Nelua compiler pragmas (`-P`).
 
 ---
 
