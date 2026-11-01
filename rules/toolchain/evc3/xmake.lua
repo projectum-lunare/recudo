@@ -7,7 +7,7 @@ local function setup_evc3_rule(rule_name)
         set_extensions(".c", ".cc", ".cpp", ".cxx")
 
         on_load(function (target)
-            local root = path.join(os.scriptdir(), "../..")
+            local root = path.join(os.scriptdir(), "../../..")
             import("modules.sdk", {rootdir = root})
             local entry = import("catalog", {rootdir = path.join(root, "modules")}).get("wince")
             local s = sdk.find(entry.sdk_name, entry.sdk_env)
@@ -223,7 +223,7 @@ local function setup_evc3_rule(rule_name)
             }
             local machine = machine_map[arch] or "ARM"
 
-            local objs = import("modules.objectfiles", {rootdir = path.join(os.scriptdir(), "../..")}).collect(target)
+            local objs = import("modules.objectfiles", {rootdir = path.join(os.scriptdir(), "../../..")}).collect(target)
 
             if target:is_binary() or target:is_shared() then
                 local link_exe = path.join(s, "bin", "link.exe")
@@ -308,5 +308,6 @@ local function setup_evc3_rule(rule_name)
         end)
 end
 
-setup_evc3_rule("evc3")
+setup_evc3_rule("forge.toolchain.evc3")
 setup_evc3_rule("forge.evc3")
+setup_evc3_rule("evc3")

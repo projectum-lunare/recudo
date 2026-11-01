@@ -10,12 +10,13 @@ function main(T)
     table.insert(tests, {
         name = "amulet rule files exist and define expected rule names",
         func = function ()
-            local content_xmake = io.readfile("rules/amulet/xmake.lua")
+            local content_xmake = io.readfile("rules/engine/amulet/xmake.lua")
             T.assert_not_nil(content_xmake)
             T.assert_true(content_xmake:find("game.lua") ~= nil)
 
-            local content_game = io.readfile("rules/amulet/game.lua")
+            local content_game = io.readfile("rules/engine/amulet/game.lua")
             T.assert_not_nil(content_game)
+            T.assert_true(content_game:find('setup_amulet_rule%("forge%.engine%.amulet"%)') ~= nil)
             T.assert_true(content_game:find('setup_amulet_rule%("forge%.amulet"%)') ~= nil)
             T.assert_true(content_game:find('setup_amulet_rule%("forge%.amulet%.game"%)') ~= nil)
             T.assert_true(content_game:find('setup_amulet_rule%("forge%.lua%.amulet"%)') ~= nil)
@@ -25,7 +26,7 @@ function main(T)
     table.insert(tests, {
         name = "amulet launcher template preloads native C modules and hooks engine",
         func = function ()
-            local content_game = io.readfile("rules/amulet/game.lua")
+            local content_game = io.readfile("rules/engine/amulet/game.lua")
             local template_str = content_game:match("local LAUNCHER_TEMPLATE = %[%[\n(.-)%]\n%]\n\nlocal function find_game_dir")
             if not template_str then
                 template_str = content_game:match("local LAUNCHER_TEMPLATE = %[%[\n(.-)\n%]%]")
@@ -53,7 +54,7 @@ function main(T)
     table.insert(tests, {
         name = "amulet rule discovers native modules dynamically via forge lua module tree",
         func = function ()
-            local content_game = io.readfile("rules/amulet/game.lua")
+            local content_game = io.readfile("rules/engine/amulet/game.lua")
             T.assert_true(content_game:find('KNOWN_NATIVE_MODULES') == nil, "Should not maintain a hardcoded list")
             T.assert_true(content_game:find('lua_module%.roots_of') ~= nil, "Should use lua_module.roots_of")
             T.assert_true(content_game:find('lua_module%.bundle_sources') ~= nil, "Should use lua_module.bundle_sources")

@@ -8,8 +8,9 @@ function main(T)
     table.insert(tests, {
         name = "fennel rule files exist and define expected rule names and extensions",
         func = function ()
-            local content_xmake = io.readfile("rules/fennel/xmake.lua")
+            local content_xmake = io.readfile("rules/lang/fennel/xmake.lua")
             T.assert_not_nil(content_xmake)
+            T.assert_true(content_xmake:find('setup_fennel_rule%("forge%.lang%.fennel"%)') ~= nil)
             T.assert_true(content_xmake:find('setup_fennel_rule%("forge%.fennel"%)') ~= nil)
             T.assert_true(content_xmake:find('setup_fennel_rule%("forge%.lua%.fennel"%)') ~= nil)
             T.assert_true(content_xmake:find('setup_fennel_rule%("fennel"%)') ~= nil)
@@ -20,8 +21,9 @@ function main(T)
     table.insert(tests, {
         name = "moonscript rule files exist and define expected rule names and extensions",
         func = function ()
-            local content_xmake = io.readfile("rules/moonscript/xmake.lua")
+            local content_xmake = io.readfile("rules/lang/moonscript/xmake.lua")
             T.assert_not_nil(content_xmake)
+            T.assert_true(content_xmake:find('setup_moonscript_rule%("forge%.lang%.moonscript"%)') ~= nil)
             T.assert_true(content_xmake:find('setup_moonscript_rule%("forge%.moonscript"%)') ~= nil)
             T.assert_true(content_xmake:find('setup_moonscript_rule%("forge%.lua%.moonscript"%)') ~= nil)
             T.assert_true(content_xmake:find('setup_moonscript_rule%("moonscript"%)') ~= nil)
@@ -32,8 +34,9 @@ function main(T)
     table.insert(tests, {
         name = "yuescript rule files exist and define expected rule names and extensions",
         func = function ()
-            local content_xmake = io.readfile("rules/yuescript/xmake.lua")
+            local content_xmake = io.readfile("rules/lang/yuescript/xmake.lua")
             T.assert_not_nil(content_xmake)
+            T.assert_true(content_xmake:find('setup_yuescript_rule%("forge%.lang%.yuescript"%)') ~= nil)
             T.assert_true(content_xmake:find('setup_yuescript_rule%("forge%.yuescript"%)') ~= nil)
             T.assert_true(content_xmake:find('setup_yuescript_rule%("forge%.lua%.yuescript"%)') ~= nil)
             T.assert_true(content_xmake:find('setup_yuescript_rule%("yuescript"%)') ~= nil)

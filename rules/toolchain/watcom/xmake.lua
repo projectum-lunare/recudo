@@ -17,7 +17,7 @@ local function setup_watcom_rule(rule_name)
         set_extensions(".c", ".cc", ".cpp", ".cxx")
 
         on_load(function (target)
-            local root = path.join(os.scriptdir(), "../..")
+            local root = path.join(os.scriptdir(), "../../..")
             import("modules.detect.watcom", {rootdir = root})
             local entry = import("catalog", {rootdir = path.join(root, "modules")}).get("dos")
             local sdkdir = watcom.find_sdk(entry.sdk_env, {sdk_name = entry.sdk_name})
@@ -38,7 +38,7 @@ local function setup_watcom_rule(rule_name)
         end)
 
         on_buildcmd_file(function (target, batchcmds, sourcefile, opt)
-            import("modules.detect.watcom", {rootdir = path.join(os.scriptdir(), "../..")})
+            import("modules.detect.watcom", {rootdir = path.join(os.scriptdir(), "../../..")})
             local sdkdir = target:data("watcom.sdk")
             local bindir = target:data("watcom.bindir")
             local owcc = path.join(bindir, "owcc")
@@ -166,14 +166,14 @@ local function setup_watcom_rule(rule_name)
         end)
 
         on_linkcmd(function (target, batchcmds, opt)
-            import("modules.detect.watcom", {rootdir = path.join(os.scriptdir(), "../..")})
+            import("modules.detect.watcom", {rootdir = path.join(os.scriptdir(), "../../..")})
             local sdkdir = target:data("watcom.sdk")
             local bindir = target:data("watcom.bindir")
             local target_sys = target:data("watcom.target") or "dos32a"
             local targetfile = target:targetfile()
 
             local envs = watcom.get_env(sdkdir, target_sys)
-            local objs = import("modules.objectfiles", {rootdir = path.join(os.scriptdir(), "../..")}).collect(target)
+            local objs = import("modules.objectfiles", {rootdir = path.join(os.scriptdir(), "../../..")}).collect(target)
 
             batchcmds:mkdir(path.directory(targetfile))
 
@@ -241,5 +241,6 @@ local function setup_watcom_rule(rule_name)
         end)
 end
 
-setup_watcom_rule("watcom")
+setup_watcom_rule("forge.toolchain.watcom")
 setup_watcom_rule("forge.watcom")
+setup_watcom_rule("watcom")
