@@ -8,7 +8,7 @@ function main(T)
     table.insert(tests, {
         name = "fennel rule files exist and define expected rule names and extensions",
         func = function ()
-            local content_xmake = io.readfile("rules/lang/fennel/xmake.lua")
+            local content_xmake = io.readfile(path.join(os.projectdir(), "rules/lang/fennel/xmake.lua"))
             T.assert_not_nil(content_xmake)
             T.assert_true(content_xmake:find('setup_fennel_rule%("forge%.lang%.fennel"%)') ~= nil)
             T.assert_true(content_xmake:find('set_extensions%("%.fnl"%)') ~= nil)
@@ -18,7 +18,7 @@ function main(T)
     table.insert(tests, {
         name = "moonscript rule files exist and define expected rule names and extensions",
         func = function ()
-            local content_xmake = io.readfile("rules/lang/moonscript/xmake.lua")
+            local content_xmake = io.readfile(path.join(os.projectdir(), "rules/lang/moonscript/xmake.lua"))
             T.assert_not_nil(content_xmake)
             T.assert_true(content_xmake:find('setup_moonscript_rule%("forge%.lang%.moonscript"%)') ~= nil)
             T.assert_true(content_xmake:find('set_extensions%("%.moon"%)') ~= nil)
@@ -28,7 +28,7 @@ function main(T)
     table.insert(tests, {
         name = "yuescript rule files exist and define expected rule names and extensions",
         func = function ()
-            local content_xmake = io.readfile("rules/lang/yuescript/xmake.lua")
+            local content_xmake = io.readfile(path.join(os.projectdir(), "rules/lang/yuescript/xmake.lua"))
             T.assert_not_nil(content_xmake)
             T.assert_true(content_xmake:find('setup_yuescript_rule%("forge%.lang%.yuescript"%)') ~= nil)
             T.assert_true(content_xmake:find('set_extensions%("%.yue"%)') ~= nil)

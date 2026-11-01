@@ -18,7 +18,7 @@ function main(T)
     table.insert(tests, {
         name = "m68k toolchain loader does not force cxflags",
         func = function ()
-            local content = io.readfile("toolchains/m68k.lua")
+            local content = io.readfile(path.join(os.projectdir(), "toolchains/m68k.lua"))
             T.assert_not_nil(content)
             T.assert_false(content:find('{force%s*=%s*true}') ~= nil, "m68k toolchain should NOT force cxflags")
         end
@@ -27,7 +27,7 @@ function main(T)
     table.insert(tests, {
         name = "m68k toolchain maps 68000 through 68060",
         func = function ()
-            local content = io.readfile("toolchains/m68k.lua")
+            local content = io.readfile(path.join(os.projectdir(), "toolchains/m68k.lua"))
             T.assert_true(content:find('-m68000') ~= nil, "Should support -m68000")
             T.assert_true(content:find('-m68020') ~= nil, "Should support -m68020")
             T.assert_true(content:find('-m68030') ~= nil, "Should support -m68030")
@@ -79,7 +79,7 @@ function main(T)
                 "freebsd", "openbsd", "netbsd", "dragonflybsd"
             }
             for _, id in ipairs(ids) do
-                local content = io.readfile(path.join("platforms", id, "xmake.lua"))
+                local content = io.readfile(path.join(os.projectdir(), "platforms", id, "xmake.lua"))
                 T.assert_true(content:find('define_platform%("' .. id .. '"%)') ~= nil, id .. " script should call define_platform")
                 local entry = catalog.get(id)
                 T.assert_not_nil(entry, id)
@@ -112,7 +112,7 @@ function main(T)
         name = "toolchain scripts take SDK identity from the catalog",
         func = function ()
             local function uses_catalog(file, hardcoded)
-                local content = io.readfile(file)
+                local content = io.readfile(path.join(os.projectdir(), file))
                 T.assert_not_nil(content, file)
                 T.assert_true(content:find("catalog.lua", 1, true) ~= nil, file .. " should include the catalog")
                 for _, word in ipairs(hardcoded) do

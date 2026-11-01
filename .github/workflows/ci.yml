@@ -27,6 +27,22 @@ jobs:
       - name: Verify Xmake Version
         run: xmake --version
 
+      - name: Install System Lua (Ubuntu)
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y lua5.4
+          sudo update-alternatives --install /usr/bin/lua lua /usr/bin/lua5.4 100 || sudo ln -sf /usr/bin/lua5.4 /usr/bin/lua
+
+      - name: Install System Lua (macOS)
+        if: runner.os == 'macOS'
+        run: |
+          brew install lua
+          sudo ln -sf "$(brew --prefix)/bin/lua" /usr/local/bin/lua 2>/dev/null || true
+
+      - name: Install Forge Addon
+        run: xmake addon --install .
+
       - name: Run Test Suite (xmake test)
         run: xmake test
 
