@@ -87,7 +87,7 @@ includes("@addon/forge/forge.lua")
 
 ### Vintage Compiler Rules (`forge.toolchain.watcom` & `forge.toolchain.evc3`)
 
-For vintage targets with specialized proprietary toolchains, attach the native compilation rules (aliases: `forge.watcom`, `forge.evc3`, `watcom`, `evc3`):
+For vintage targets with specialized proprietary toolchains, attach the native compilation rules:
 ```lua
 target("my_retro_app")
     set_kind("binary")
@@ -100,15 +100,15 @@ target("my_retro_app")
     elseif is_plat("wince") then
         add_rules("forge.toolchain.evc3", {override = true})
         -- For console apps using standard main() instead of GUI WinMain():
-        -- set_values("evc3.entry", "mainACRTStartup")
+        -- set_values("forge.toolchain.evc3.entry", "mainACRTStartup")
     end
 ```
 *(Standard platforms like `amiga`, `atari`, `kolibri`, `freebsd`, `openbsd`, `netbsd`, `dragonflybsd`, and `linux` use native GCC/Clang toolchains automatically with standard Xmake C/C++ build graphs).*
 
 > [!NOTE]
-> **Windows CE Entry Point:** By default, executables built with `forge.evc3` target the CE graphical subsystem and use `/entry:WinMainCRTStartup` (which invokes `WinMain`). If you are compiling a console / CLI application with a standard `main()`, set the entry point to `mainACRTStartup`:
+> **Windows CE Entry Point:** By default, executables built with `forge.toolchain.evc3` target the CE graphical subsystem and use `/entry:WinMainCRTStartup` (which invokes `WinMain`). If you are compiling a console / CLI application with a standard `main()`, set the entry point to `mainACRTStartup`:
 > ```lua
-> set_values("evc3.entry", "mainACRTStartup")
+> set_values("forge.toolchain.evc3.entry", "mainACRTStartup")
 > -- or: add_ldflags("/entry:mainACRTStartup")
 > ```
 
@@ -284,7 +284,7 @@ package("my-extension")
 
 ### 7. LÖVE 2D Game Engine Integration (`forge.engine.love`)
 
-Forge provides first-class support for developing and distributing 2D games with the [LÖVE (Love2D)](https://love2d.org) engine (aliases: `forge.love`, `forge.love.game`, `forge.lua.love`):
+Forge provides first-class support for developing and distributing 2D games with the [LÖVE (Love2D)](https://love2d.org) engine:
 
 ```lua
 add_rules("mode.release", "mode.debug")
@@ -307,13 +307,13 @@ target("my_game")
 - **LuaJIT or PUC Lua Runtime:** Inherits the runtime configured in `packages/l/love` (`luajit` for maximum performance, or `lua 5.1` for PUC Lua compatibility).
 
 #### Target Values & Configuration:
-- `set_values("love.dir", "src")`: Explicit root directory containing `main.lua` (auto-detected by default).
-- `set_values("love.fused", true|false)`: Force fused binary generation on or off (defaults to `true` in release mode, `false` in debug mode).
-- `set_values("love.modules", {{name = "mymod", symbol = "luaopen_mymod"}})`: Manual registration for custom in-tree C modules.
+- `set_values("forge.engine.love.dir", "src")`: Explicit root directory containing `main.lua` (auto-detected by default; fallback `love.dir`).
+- `set_values("forge.engine.love.fused", true|false)`: Force fused binary generation on or off (defaults to `true` in release mode, `false` in debug mode; fallback `love.fused`).
+- `set_values("forge.engine.love.modules", {{name = "mymod", symbol = "luaopen_mymod"}})`: Manual registration for custom in-tree C modules (fallback `love.modules`).
 
 ### 8. Amulet Game Toolkit Integration (`forge.engine.amulet`)
 
-Forge provides first-class support for creating and distributing audio/visual 2D/3D games with the [Amulet](http://www.amulet.xyz/) game toolkit (aliases: `forge.amulet`, `forge.amulet.game`, `forge.lua.amulet`):
+Forge provides first-class support for creating and distributing audio/visual 2D/3D games with the [Amulet](http://www.amulet.xyz/) game toolkit:
 
 ```lua
 add_rules("mode.release", "mode.debug")
@@ -336,13 +336,13 @@ target("my_game")
 - **Dual Package Support:** Uses the enhanced `amulet` package in `projectum-lunare/xmake-repo` providing both static library linkage (`libamulet.a`), headers, and standalone CLI tool.
 
 #### Target Values & Configuration:
-- `set_values("amulet.dir", "src")`: Explicit root directory containing `main.lua` (auto-detected by default).
-- `set_values("amulet.fused", true|false)`: Force `data.pak` packaging on or off (defaults to `true` in release mode, `false` in debug mode).
-- `set_values("amulet.modules", {{name = "mymod", symbol = "luaopen_mymod"}})`: Manual registration for custom in-tree C modules.
+- `set_values("forge.engine.amulet.dir", "src")`: Explicit root directory containing `main.lua` (auto-detected by default; fallback `amulet.dir`).
+- `set_values("forge.engine.amulet.fused", true|false)`: Force `data.pak` packaging on or off (defaults to `true` in release mode, `false` in debug mode; fallback `amulet.fused`).
+- `set_values("forge.engine.amulet.modules", {{name = "mymod", symbol = "luaopen_mymod"}})`: Manual registration for custom in-tree C modules (fallback `amulet.modules`).
 
 ### 9. Teal Typed Lua Integration (`forge.lang.teal`)
 
-Forge provides first-class support for the [Teal](https://github.com/teal-language/tl) statically typed dialect of Lua (aliases: `forge.teal`, `forge.lua.teal`, `teal`):
+Forge provides first-class support for the [Teal](https://github.com/teal-language/tl) statically typed dialect of Lua:
 
 ```lua
 target("my_typed_lib")
@@ -355,12 +355,12 @@ target("my_typed_lib")
 - **Strict Static Type Checking:** Verifies types at compile time via `tl gen -c`, catching errors early in the build graph before runtime.
 - **Transpilation Pipeline:** Compiles typed Teal definitions into clean, standard Lua files placed in `build/lua/` and installed canonically into `share/lua/` and `lib/`.
 - **Target Options:**
-  - `set_values("forge.teal.check", false)`: Disable strict type validation if needed.
-  - `set_values("forge.teal.outdir", "custom/dir")`: Explicit custom destination for transpiled Lua code.
+  - `set_values("forge.lang.teal.check", false)`: Disable strict type validation if needed.
+  - `set_values("forge.lang.teal.outdir", "custom/dir")`: Explicit custom destination for transpiled Lua code.
 
 ### 10. Nelua Systems Language Integration (`forge.lang.nelua`)
 
-Forge provides first-class integration for [Nelua](https://nelua.io/) (aliases: `forge.nelua`, `nelua`), a statically typed, meta-programmable systems programming language heavily inspired by Lua that compiles to C and WebAssembly:
+Forge provides first-class integration for [Nelua](https://nelua.io/), a statically typed, meta-programmable systems programming language heavily inspired by Lua that compiles to C and WebAssembly:
 
 ```lua
 target("my_systems_app")
@@ -374,30 +374,30 @@ target("my_systems_app")
   ```lua
   target("my_nelua_to_lua")
       add_rules("forge.lang.nelua")
-      set_values("forge.nelua.generator", "lua")
+      set_values("forge.lang.nelua.generator", "lua")
       add_files("src/*.nelua")
   ```
 - **Target Options & Flags:**
-  - `set_values("forge.nelua.generator", "c"|"lua")`: Backend generator to use (defaults to `"c"`).
-  - `set_values("forge.nelua.maximum_performance", true)`: Enable `-M` maximum performance optimizations.
-  - `set_values("forge.nelua.defines", {"MY_DEF=1"})`: Pass custom `-D` preprocessor definitions.
-  - `set_values("forge.nelua.pragmas", {"nogc"})`: Set initial Nelua compiler pragmas (`-P`).
+  - `set_values("forge.lang.nelua.generator", "c"|"lua")`: Backend generator to use (defaults to `"c"`).
+  - `set_values("forge.lang.nelua.maximum_performance", true)`: Enable `-M` maximum performance optimizations.
+  - `set_values("forge.lang.nelua.defines", {"MY_DEF=1"})`: Pass custom `-D` preprocessor definitions.
+  - `set_values("forge.lang.nelua.pragmas", {"nogc"})`: Set initial Nelua compiler pragmas (`-P`).
 
 ### 11. Compile-to-Lua Transpilers (`forge.lang.*`)
 
 Forge provides first-class, seamless Ahead-of-Time (AOT) transpilation for the most popular compile-to-Lua languages. You can mix and match them inside standard Lua apps, modules, LÖVE 2D games, or Amulet projects:
 
 #### Fennel Lisp (`forge.lang.fennel`)
-Compile [Fennel](https://fennel-lang.org) Lisp (`.fnl`) into clean Lua (aliases: `forge.fennel`, `fennel`):
+Compile [Fennel](https://fennel-lang.org) Lisp (`.fnl`) into clean Lua:
 ```lua
 target("my_fennel_game")
     add_rules("forge.engine.love", "forge.lang.fennel")
     add_files("src/**.fnl")
-    set_values("forge.fennel.correlate", true) -- match source line numbers
+    set_values("forge.lang.fennel.correlate", true) -- match source line numbers
 ```
 
 #### MoonScript (`forge.lang.moonscript`)
-Compile [MoonScript](https://moonscript.org) (`.moon`) CoffeeScript-style syntax into Lua (aliases: `forge.moonscript`, `moonscript`):
+Compile [MoonScript](https://moonscript.org) (`.moon`) CoffeeScript-style syntax into Lua:
 ```lua
 target("my_moon_module")
     add_rules("forge.lua.module", "forge.lang.moonscript")
@@ -405,12 +405,12 @@ target("my_moon_module")
 ```
 
 #### YueScript (`forge.lang.yuescript`)
-Compile [YueScript](https://yuescript.org) (`.yue`), the high-performance C++-powered evolution of MoonScript (aliases: `forge.yuescript`, `yuescript`):
+Compile [YueScript](https://yuescript.org) (`.yue`), the high-performance C++-powered evolution of MoonScript:
 ```lua
 target("my_yue_app")
     add_rules("forge.lua.app", "forge.lang.yuescript")
     add_files("src/**.yue")
-    set_values("forge.yuescript.target", "5.1") -- target Lua 5.1/LuaJIT ABI
+    set_values("forge.lang.yuescript.target", "5.1") -- target Lua 5.1/LuaJIT ABI
 ```
 
 ---
