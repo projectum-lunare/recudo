@@ -270,5 +270,107 @@ target("bundled")
         end
     })
 
+    table.insert(tests, {
+        name = "setup_runtime orchestrates Lua runtimes and version constraints",
+        func = function ()
+            local added_deps = {}
+            local fake_pkg = {
+                name = function() return "test-pkg" end,
+                config = function(_, k)
+                    if k == "runtime" then return "lua" end
+                end,
+                add = function(_, kind, dep, opt)
+                    table.insert(added_deps, {kind = kind, dep = dep, opt = opt})
+                end
+            }
+
+            -- Test { runtime = {"lua", "luajit"}, version = ">=5.1 <=5.3" }
+            lua_module.setup(fake_pkg, {runtime = {"lua", "luajit"}, version = ">=5.1 <=5.3"})
+            T.assert_equal(#added_deps, 2)
+            T.assert_equal(added_deps[1].dep, "lua >=5.1 <=5.3")
+            T.assert_equal(added_deps[2].dep, "forge master")
+
+            -- Test string shorthand syntax setup(pkg, ">=5.1 <=5.3")
+            added_deps = {}
+            lua_module.setup(fake_pkg, ">=5.1 <=5.3")
+            T.assert_equal(#added_deps, 2)
+            T.assert_equal(added_deps[1].dep, "lua >=5.1 <=5.3")
+
+            -- Test single runtime setup(pkg, {runtime = "luajit"})
+            added_deps = {}
+            local fake_single_pkg = {
+                name = function() return "test-magick" end,
+                config = function() end,
+                add = function(_, kind, dep, opt)
+                    table.insert(added_deps, {kind = kind, dep = dep, opt = opt})
+                end
+            }
+            lua_module.setup(fake_single_pkg, {runtime = "luajit"})
+            T.assert_equal(#added_deps, 2)
+            T.assert_equal(added_deps[1].dep, "luajit")
+
+            -- Test LuaJIT runtime selection with multi-runtime definition
+            added_deps = {}
+            local fake_jit_pkg = {
+                name = function() return "test-jit" end,
+                config = function(_, k)
+                    if k == "runtime" then return "luajit" end
+                end,
+                add = function(_, kind, dep, opt)
+                    table.insert(added_deps, {kind = kind, dep = dep, opt = opt})
+                end
+            }
+            lua_module.setup(fake_jit_pkg, {runtime = {"lua", "luajit"}})
+            T.assert_equal(#added_deps, 2)
+            T.assert_equal(added_deps[1].dep, "luajit")
+            T.assert_equal(added_deps[2].dep, "forge master")
+
+            -- Test unsupported runtime rejection
+            local fake_unsupported_pkg = {
+                name = function() return "test-unsupported" end,
+                config = function(_, k)
+                    if k == "runtime" then return "luau" end
+                end,
+                add = function() end
+            }
+            local err_unsupported = nil
+            try {
+                function ()
+                    lua_module.setup(fake_unsupported_pkg, {runtime = {"lua", "luajit"}})
+                end,
+                catch {
+                    function (err)
+                        err_unsupported = err
+                    end
+                }
+            }
+            T.assert_true(err_unsupported ~= nil, "should fail for unsupported runtime")
+            T.assert_true(err_unsupported:find("does not support runtime 'luau'") ~= nil, err_unsupported)
+
+            -- Test incompatible version rejection
+            local fake_incompat_pkg = {
+                name = function() return "test-incompat" end,
+                config = function(_, k)
+                    if k == "runtime" then return "lua" end
+                    if k == "lua_version" then return "5.4.7" end
+                end,
+                add = function() end
+            }
+            local err_msg = nil
+            try {
+                function ()
+                    lua_module.setup(fake_incompat_pkg, {runtime = {"lua", "luajit"}, version = ">=5.1 <=5.3"})
+                end,
+                catch {
+                    function (err)
+                        err_msg = err
+                    end
+                }
+            }
+            T.assert_true(err_msg ~= nil, "should fail for incompatible Lua 5.4.7")
+            T.assert_true(err_msg:find("only supports Lua >=5.1 <=5.3 or LuaJIT") ~= nil, err_msg)
+        end
+    })
+
     return tests
 end

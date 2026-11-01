@@ -17,13 +17,23 @@ local function setup_bundle_rule(rule_name)
 
             local has_lua = false
             for _, pkg in ipairs(table.wrap(target:get("packages"))) do
-                if pkg == "lua" or pkg == "luajit" then
+                if pkg == "lua" or pkg == "luajit" or pkg == "openresty-luajit" then
                     has_lua = true
                     break
                 end
             end
             if not has_lua then
-                target:add("packages", "lua")
+                local project = import("core.project.project", {anonymous = true})
+                local reqs = project.required_packages and project.required_packages()
+                if reqs and (reqs["luajit"] or reqs["openresty-luajit"]) then
+                    if reqs["luajit"] then
+                        target:add("packages", "luajit")
+                    else
+                        target:add("packages", "openresty-luajit")
+                    end
+                else
+                    target:add("packages", "lua")
+                end
             end
             target:add("defines", "LUA_COMPAT_5_3")
 
@@ -44,7 +54,8 @@ local function setup_bundle_rule(rule_name)
                     if native.linkdir then
                         target:add("linkdirs", native.linkdir)
                     end
-                    target:add("linkorders", native.link, "lua")
+                    local rt_pkg = target:pkg("luajit") and "luajit" or (target:pkg("openresty-luajit") and "openresty-luajit" or "lua")
+                    target:add("linkorders", native.link, rt_pkg)
                 end
             end
         end)
