@@ -7,6 +7,7 @@
 local modules_root = path.directory(os.scriptdir())
 import("lua.names", {rootdir = modules_root, inherit = true})
 import("lua.tree", {rootdir = modules_root, inherit = true})
+import("lua.runtime", {rootdir = modules_root, inherit = true})
 
 -- Captured when this module is loaded. os.scriptdir() later follows the caller.
 local FORGE_ROOT = path.directory(path.directory(os.scriptdir()))
@@ -46,12 +47,36 @@ function install_project(package, configs)
     if not project:find("/forge.lua", 1, true) and not project:find("\\forge.lua", 1, true) then
         local rc = os.tmpfile() .. ".lua"
         local forge_lua = path.join(FORGE_ROOT, "includes", "forge.lua")
-        io.writefile(rc, table.concat({
+        local req_runtime = "lua"
+        local rt_dep = package.dep and (package:dep("luajit") or package:dep("openresty-luajit") or package:dep("lua"))
+        if rt_dep then
+            req_runtime = rt_dep:name()
+            if rt_dep.version and rt_dep:version() then
+                req_runtime = req_runtime .. " " .. rt_dep:version()
+            end
+        else
+            local rt = package.config and package:config("runtime")
+            if rt == "luajit" then
+                req_runtime = "luajit"
+            elseif rt == "openresty-luajit" then
+                req_runtime = "openresty-luajit"
+            end
+        end
+
+        local req_line
+        if rt_dep and rt_dep:config("shared") ~= nil then
+            req_line = string.format('add_requires(%q, {configs = {shared = %s}})', req_runtime, tostring(rt_dep:config("shared")))
+        else
+            req_line = string.format('add_requires(%q)', req_runtime)
+        end
+
+        local rc_lines = {
             'add_rules("mode.release", "mode.debug")',
-            'add_requires("lua")',
+            req_line,
             "includes(" .. string.format("%q", forge_lua) .. ")",
             ""
-        }, "\n"))
+        }
+        io.writefile(rc, table.concat(rc_lines, "\n"))
         envs.XMAKE_RCFILES = envs.XMAKE_RCFILES or {}
         table.insert(envs.XMAKE_RCFILES, rc)
     end
@@ -121,10 +146,59 @@ function lua_test(package, expr)
         return result
     end
 
-    os.vrunv("lua", {"-e", expr}, {envs = {
+    local lua_prog
+    local lua_dep = (package.dep and (package:dep("lua") or package:dep("luajit") or package:dep("openresty-luajit"))) or nil
+    if lua_dep and lua_dep.installdir then
+        local bindir = lua_dep:installdir("bin")
+        if bindir then
+            for _, name in ipairs({"lua", "luajit", "lua.exe", "luajit.exe"}) do
+                local p = path.join(bindir, name)
+                if os.isexec(p) or os.isfile(p) then
+                    lua_prog = p
+                    break
+                end
+            end
+        end
+    end
+    if not lua_prog then
+        lua_prog = "lua"
+    end
+
+    local ld_paths = {}
+    local function add_ld_paths(pkg)
+        local dir = pkg.installdir and pkg:installdir()
+        if dir and os.isdir(dir) then
+            for _, sub in ipairs({"lib", "bin"}) do
+                local p = path.join(dir, sub)
+                if os.isdir(p) and not table.contains(ld_paths, p) then
+                    table.insert(ld_paths, p)
+                end
+            end
+        end
+    end
+    add_ld_paths(package)
+    if package.orderdeps then
+        for _, dep in ipairs(table.wrap(package:orderdeps())) do
+            add_ld_paths(dep)
+        end
+    end
+
+    local test_envs = {
         LUA_PATH = lua_list("LUA_PATH", lua_paths),
         LUA_CPATH = lua_list("LUA_CPATH", lua_cpaths)
-    }})
+    }
+    local sep = package:is_plat("windows", "mingw") and ";" or ":"
+    local ld_var = package:is_plat("windows", "mingw") and "PATH" or (package:is_plat("macosx") and "DYLD_LIBRARY_PATH" or "LD_LIBRARY_PATH")
+    local cur_ld = os.getenv(ld_var)
+    if #ld_paths > 0 then
+        local ld_val = table.concat(ld_paths, sep)
+        if cur_ld and cur_ld ~= "" then
+            ld_val = ld_val .. sep .. cur_ld
+        end
+        test_envs[ld_var] = ld_val
+    end
+
+    os.vrunv(lua_prog, {"-e", expr}, {envs = test_envs})
 end
 
 -- Build the recipe directory as an xmake project. The recipe file is that project.
@@ -324,11 +398,16 @@ end
 
 function luaver_of(package)
     if package and package.dep then
-        local lua = package:dep("lua") or package:dep("luajit")
-        if lua and lua.version then
-            local parsed = lua_version_string(lua:version())
-            if parsed then
-                return parsed
+        local lua = package:dep("lua") or package:dep("luajit") or package:dep("openresty-luajit")
+        if lua then
+            if lua:name() == "luajit" or lua:name() == "openresty-luajit" then
+                return "5.1"
+            end
+            if lua.version then
+                local parsed = lua_version_string(lua:version())
+                if parsed then
+                    return parsed
+                end
             end
         end
     end

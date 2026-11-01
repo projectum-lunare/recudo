@@ -77,13 +77,23 @@ local function setup_module_rule(rule_name)
                 -- Ensure Lua headers and defines for C modules
                 local has_lua_pkg = false
                 for _, pkg in ipairs(table.wrap(target:get("packages"))) do
-                    if pkg == "lua" or pkg == "luajit" then
+                    if pkg == "lua" or pkg == "luajit" or pkg == "openresty-luajit" then
                         has_lua_pkg = true
                         break
                     end
                 end
                 if not has_lua_pkg then
-                    target:add("packages", "lua")
+                    local project = import("core.project.project", {anonymous = true})
+                    local reqs = project.required_packages and project.required_packages()
+                    if reqs and (reqs["luajit"] or reqs["openresty-luajit"]) then
+                        if reqs["luajit"] then
+                            target:add("packages", "luajit")
+                        else
+                            target:add("packages", "openresty-luajit")
+                        end
+                    else
+                        target:add("packages", "lua")
+                    end
                 end
                 target:add("defines", "LUA_COMPAT_5_3")
                 if target:is_plat("wince") then
@@ -111,14 +121,16 @@ local function setup_module_rule(rule_name)
 
         on_config(function (target)
             if target:data("forge.lua.is_cmodule") then
-                local lua_pkg = target:pkg("lua")
+                local lua_pkg = target:pkg("lua") or target:pkg("luajit") or target:pkg("openresty-luajit")
                 if lua_pkg then
                     local dirs = table.join(table.wrap(lua_pkg:get("sysincludedirs")), table.wrap(lua_pkg:get("includedirs")))
                     for _, inc in ipairs(dirs) do
                         target:add("includedirs", inc)
-                        local subinc = path.join(inc, "lua")
-                        if os.isdir(subinc) then
-                            target:add("includedirs", subinc)
+                        for _, sub in ipairs({"lua", "luajit", "luajit-2.1", "luajit-2.0"}) do
+                            local subinc = path.join(inc, sub)
+                            if os.isdir(subinc) then
+                                target:add("includedirs", subinc)
+                            end
                         end
                     end
                 end
@@ -170,11 +182,15 @@ local function setup_module_rule(rule_name)
             end
             local name = target:name()
             local ver = "5.4"
-            local lua_pkg = (target.pkg and (target:pkg("lua") or target:pkg("luajit"))) or nil
-            if lua_pkg and lua_pkg.version then
-                local parsed = lua_module.lua_version_string(lua_pkg:version())
-                if parsed then
-                    ver = parsed
+            local lua_pkg = (target.pkg and (target:pkg("lua") or target:pkg("luajit") or target:pkg("openresty-luajit"))) or nil
+            if lua_pkg then
+                if lua_pkg:name() == "luajit" or lua_pkg:name() == "openresty-luajit" then
+                    ver = "5.1"
+                elseif lua_pkg.version then
+                    local parsed = lua_module.lua_version_string(lua_pkg:version())
+                    if parsed then
+                        ver = parsed
+                    end
                 end
             end
             local record
@@ -211,9 +227,6 @@ local function setup_module_rule(rule_name)
                     if os.isfile(installed) then
                         os.mkdir(path.directory(dst))
                         os.cp(installed, dst)
-                        if path.normalize(installed) ~= path.normalize(dst) then
-                            os.rm(installed)
-                        end
                         record.ext = ext
                         record.shared_relpath = rel
                         record.relpath = rel
