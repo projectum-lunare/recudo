@@ -61,9 +61,9 @@ local function setup_fennel_rule(rule_name)
             local lua_rel = (relpath:gsub("%.fnl$", ".lua"))
 
             -- Determine output destination
-            local outdir = target:values("forge.fennel.outdir")
+            local outdir = target:values("forge.lang.fennel.outdir") or target:values("forge.fennel.outdir") or target:values("fennel.outdir")
             if not outdir then
-                if target:data("forge.lua.is_cmodule") or target:data("forge.lua.is_pure") or target:data("forge.lua.is_app") or target:data("forge.love") or target:data("forge.amulet") then
+                if target:data("forge.lua.is_cmodule") or target:data("forge.lua.is_pure") or target:data("forge.lua.is_app") or target:data("forge.engine.love") or target:data("forge.engine.amulet") or target:has_rules("forge.engine.love") or target:has_rules("forge.engine.amulet") then
                     outdir = path.join(os.projectdir(), "build/lua")
                 else
                     outdir = path.join(target:autogendir(), "rules", "fennel")
@@ -74,10 +74,10 @@ local function setup_fennel_rule(rule_name)
 
             -- Prepare fennel compile command arguments
             local argv = {"--compile"}
-            if target:values("forge.fennel.correlate") then
+            if target:values("forge.lang.fennel.correlate") or target:values("forge.fennel.correlate") or target:values("fennel.correlate") then
                 table.insert(argv, "--correlate")
             end
-            if target:values("forge.fennel.require_as_include") then
+            if target:values("forge.lang.fennel.require_as_include") or target:values("forge.fennel.require_as_include") or target:values("fennel.require_as_include") then
                 table.insert(argv, "--require-as-include")
             end
             table.insert(argv, path(sourcefile))
@@ -95,7 +95,7 @@ local function setup_fennel_rule(rule_name)
             local installdir = target:installdir()
             if not installdir then return end
 
-            local outdir = target:values("forge.fennel.outdir") or path.join(os.projectdir(), "build/lua")
+            local outdir = target:values("forge.lang.fennel.outdir") or target:values("forge.fennel.outdir") or target:values("fennel.outdir") or path.join(os.projectdir(), "build/lua")
             for _, src in ipairs(table.wrap(target:sourcefiles())) do
                 if src:endswith(".fnl") then
                     local relpath = env.get_relative_path(target, src)
