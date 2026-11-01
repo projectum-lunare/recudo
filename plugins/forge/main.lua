@@ -231,7 +231,7 @@ local function show_list(opt)
     io.write("  xmake forge env                      # output LUA_PATH & LUA_CPATH (eval $(xmake forge env))\n")
     print("  xmake forge env --export-env         # generate .env file for IDEs and LuaLS")
     print("  xmake forge repl [-r luajit]         # launch interactive REPL with project environment")
-    print("  xmake forge create <name> [-t app]   # create a new project from template (app, module, cmodule, love, amulet)")
+    print("  xmake forge create <name> [-t app]   # create a new project from template (app, module, cmodule, love, amulet, love-compat, amulet-compat)")
 end
 
 local function show_env(env_opts)
@@ -343,13 +343,18 @@ end
 
 local function create_project(project_name, template_name, target_dir)
     if not project_name or #project_name == 0 then
-        raise("Missing project name. Usage: xmake forge create <project_name> [-t app|module|cmodule|love|amulet]")
+        raise("Missing project name. Usage: xmake forge create <project_name> [-t app|module|cmodule|love|amulet|love-compat|amulet-compat]")
     end
     template_name = template_name or "app"
+    template_name = template_name:gsub("_", "-")
     local templates_root = path.join(rootdir, "templates", "lua")
     local tmpl_dir = path.join(templates_root, template_name)
     if not os.isdir(tmpl_dir) then
-        raise("Template '%s' not found. Available templates: app, module, cmodule, love, amulet", template_name)
+        local available = {}
+        for _, dir in ipairs(os.dirs(path.join(templates_root, "*"))) do
+            table.insert(available, path.basename(dir))
+        end
+        raise("Template '%s' not found. Available templates: %s", template_name, table.concat(available, ", "))
     end
 
     target_dir = target_dir or path.join(os.projectdir(), project_name)
@@ -551,15 +556,42 @@ function main(...)
         start_repl(opt)
     elseif target_name == "create" then
         local proj_name = opt.build_target
-        if not proj_name then
-            for _, a in ipairs(args) do
-                if a ~= "create" and not a:startswith("-") then
-                    proj_name = a
+        local tmpl_choice = opt.template
+        local extra = option.get("extra_args")
+        if (not tmpl_choice or tmpl_choice == "app") and extra and #extra > 0 then
+            for idx, val in ipairs(extra) do
+                if (val == "-t" or val == "--template") and extra[idx + 1] then
+                    tmpl_choice = extra[idx + 1]
+                    break
+                elseif val:startswith("--template=") then
+                    tmpl_choice = val:sub(12)
+                    break
+                elseif val:startswith("-t=") then
+                    tmpl_choice = val:sub(4)
+                    break
+                elseif not val:startswith("-") then
+                    tmpl_choice = val
                     break
                 end
             end
         end
-        create_project(proj_name, opt.template)
+        local pos_args = {}
+        for _, a in ipairs(args) do
+            if a ~= "create" and not a:startswith("-") then
+                table.insert(pos_args, a)
+            end
+        end
+        if not proj_name and #pos_args > 0 then
+            proj_name = pos_args[1]
+            if #pos_args > 1 and (not tmpl_choice or tmpl_choice == "app") then
+                tmpl_choice = pos_args[2]
+            end
+        elseif proj_name and #pos_args > 1 and (not tmpl_choice or tmpl_choice == "app") then
+            if pos_args[1] == proj_name and pos_args[2] then
+                tmpl_choice = pos_args[2]
+            end
+        end
+        create_project(proj_name, tmpl_choice)
     elseif target_name == "all" then
         local results = {}
         local all_opt = table.clone(opt)
