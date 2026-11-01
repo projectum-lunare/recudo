@@ -8,7 +8,7 @@ function main(T)
     table.insert(tests, {
         name = "watcom rule supports C and C++ extensions",
         func = function ()
-            local content = io.readfile("rules/watcom/xmake.lua")
+            local content = io.readfile("rules/toolchain/watcom/xmake.lua")
             T.assert_not_nil(content)
             T.assert_true(content:find('%.cpp') ~= nil, "Watcom rule should support .cpp")
             T.assert_true(content:find('%.cc') ~= nil, "Watcom rule should support .cc")
@@ -19,7 +19,7 @@ function main(T)
     table.insert(tests, {
         name = "watcom rule does not pass separated -x and c/c++ arguments",
         func = function ()
-            local content = io.readfile("rules/watcom/xmake.lua")
+            local content = io.readfile("rules/toolchain/watcom/xmake.lua")
             -- Ensure "-x" is never pushed as an independent argv element
             T.assert_nil(content:match('table%.insert%(argv,%s*["\']%-x["\']%)'),
                 "Watcom rule must NOT pass separated -x argument; owcc requires attached -xc / -xc++ or no -x for C")
@@ -99,7 +99,7 @@ function main(T)
     table.insert(tests, {
         name = "evc3 rule supports C and C++ extensions",
         func = function ()
-            local content = io.readfile("rules/evc3/xmake.lua")
+            local content = io.readfile("rules/toolchain/evc3/xmake.lua")
             T.assert_not_nil(content)
             T.assert_true(content:find('%.cpp') ~= nil, "eVC3 rule should support .cpp")
             T.assert_true(content:find('%.cc') ~= nil, "eVC3 rule should support .cc")
@@ -110,7 +110,7 @@ function main(T)
     table.insert(tests, {
         name = "watcom rule dynamically maps optimization, symbols and warnings",
         func = function ()
-            local content = io.readfile("rules/watcom/xmake.lua")
+            local content = io.readfile("rules/toolchain/watcom/xmake.lua")
             T.assert_true(content:find('-O0') ~= nil, "Watcom should map -O0 for none/debug")
             T.assert_true(content:find('-O2') ~= nil, "Watcom should map -O2")
             T.assert_true(content:find('-Os') ~= nil, "Watcom should map -Os")
@@ -122,7 +122,7 @@ function main(T)
     table.insert(tests, {
         name = "evc3 rule dynamically maps optimization, symbols and warnings",
         func = function ()
-            local content = io.readfile("rules/evc3/xmake.lua")
+            local content = io.readfile("rules/toolchain/evc3/xmake.lua")
             T.assert_true(content:find('/Od') ~= nil, "eVC3 should map /Od for none/debug")
             T.assert_true(content:find('/O1') ~= nil, "eVC3 should map /O1 for space")
             T.assert_true(content:find('/O2') ~= nil, "eVC3 should map /O2 for speed")
@@ -135,7 +135,7 @@ function main(T)
     table.insert(tests, {
         name = "watcom rule tracks header dependencies with -MMD -MF and parse_deps",
         func = function ()
-            local content = io.readfile("rules/watcom/xmake.lua")
+            local content = io.readfile("rules/toolchain/watcom/xmake.lua")
             T.assert_true(content:find('-MMD') ~= nil, "Watcom rule should emit -MMD")
             T.assert_true(content:find('-MF') ~= nil, "Watcom rule should emit -MF")
             T.assert_true(content:find('parse_deps') ~= nil, "Watcom rule should parse depfiles")
@@ -146,7 +146,7 @@ function main(T)
     table.insert(tests, {
         name = "evc3 rule tracks header dependencies recursively",
         func = function ()
-            local content = io.readfile("rules/evc3/xmake.lua")
+            local content = io.readfile("rules/toolchain/evc3/xmake.lua")
             T.assert_true(content:find('scan_evc3_includes') ~= nil, "eVC3 rule should define recursive include scanner")
             T.assert_true(content:find('batchcmds:add_depfiles') ~= nil, "eVC3 rule should register found headers")
         end
@@ -155,7 +155,7 @@ function main(T)
     table.insert(tests, {
         name = "evc3 rule links executables via link.exe and archives via lib.exe without host ar",
         func = function ()
-            local content = io.readfile("rules/evc3/xmake.lua")
+            local content = io.readfile("rules/toolchain/evc3/xmake.lua")
             T.assert_true(content:find('link%.exe') ~= nil, "eVC3 rule must invoke link.exe for binaries")
             T.assert_true(content:find('/subsystem:windowsce') ~= nil, "eVC3 rule must specify /subsystem:windowsce")
             T.assert_true(content:find('/MACHINE:') ~= nil, "eVC3 rule must pass /MACHINE: architecture")
@@ -169,8 +169,8 @@ function main(T)
     table.insert(tests, {
         name = "rules safely resolve and deduplicate object files",
         func = function ()
-            local watcom_content = io.readfile("rules/watcom/xmake.lua")
-            local evc3_content = io.readfile("rules/evc3/xmake.lua")
+            local watcom_content = io.readfile("rules/toolchain/watcom/xmake.lua")
+            local evc3_content = io.readfile("rules/toolchain/evc3/xmake.lua")
 
             T.assert_true(watcom_content:find('modules%.objectfiles') ~= nil, "Watcom rule should use the shared object file list")
             T.assert_true(watcom_content:find('table%.contains%(current_objs,%s*objfile%)') ~= nil, "Watcom rule should guard against duplicate objectfiles")

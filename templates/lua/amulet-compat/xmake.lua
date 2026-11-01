@@ -5,6 +5,6 @@ add_requires("lua-compat-5.3")
 includes("@addon/forge/forge.lua")
 
 target("${TARGET_NAME}")
-    add_rules("forge.amulet")
+    add_rules("forge.engine.amulet")
     add_packages("lua-compat-5.3")
     add_files("src/**.lua")
