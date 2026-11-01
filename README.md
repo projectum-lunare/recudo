@@ -25,6 +25,7 @@ Instead of reinventing low-level DAG build graphs from scratch, Forge integrates
 - **Amulet Game Toolkit Integration:** Native `forge.amulet` rule for 2D/3D audio/visual games, dynamic C-extension preload hook into Amulet's runtime, instant development iteration, and standalone release bundle packaging (`data.pak`).
 - **Teal Typed Lua Integration:** Native `forge.teal` rule providing gradual static typing, strict type-checking, and transpilation into clean Lua.
 - **Nelua Systems Language Integration:** Native `forge.nelua` rule compiling statically-typed, meta-programmable systems code directly to ANSI/C99 (for vintage & modern toolchains) or clean Lua.
+- **Compile-to-Lua Transpilers (Fennel, MoonScript, YueScript):** Native `forge.fennel`, `forge.moonscript`, and `forge.yuescript` rules providing seamless Ahead-of-Time (AOT) transpilation of `.fnl`, `.moon`, and `.yue` files into clean Lua code.
 - **Matrix Orchestration CLI:** High-level `xmake forge` tasks to audit, cross-compile, and benchmark builds across target architectures.
 
 ---
@@ -381,6 +382,36 @@ target("my_systems_app")
   - `set_values("forge.nelua.maximum_performance", true)`: Enable `-M` maximum performance optimizations.
   - `set_values("forge.nelua.defines", {"MY_DEF=1"})`: Pass custom `-D` preprocessor definitions.
   - `set_values("forge.nelua.pragmas", {"nogc"})`: Set initial Nelua compiler pragmas (`-P`).
+
+### 11. Compile-to-Lua Transpilers (Fennel, MoonScript, YueScript)
+
+Forge provides first-class, seamless Ahead-of-Time (AOT) transpilation for the most popular compile-to-Lua languages. You can mix and match them inside standard Lua apps, modules, LÖVE 2D games, or Amulet projects:
+
+#### Fennel Lisp (`forge.fennel`)
+Compile [Fennel](https://fennel-lang.org) Lisp (`.fnl`) into clean Lua:
+```lua
+target("my_fennel_game")
+    add_rules("forge.love", "forge.fennel")
+    add_files("src/**.fnl")
+    set_values("forge.fennel.correlate", true) -- match source line numbers
+```
+
+#### MoonScript (`forge.moonscript`)
+Compile [MoonScript](https://moonscript.org) (`.moon`) CoffeeScript-style syntax into Lua:
+```lua
+target("my_moon_module")
+    add_rules("forge.lua.module", "forge.moonscript")
+    add_files("src/**.moon")
+```
+
+#### YueScript (`forge.yuescript`)
+Compile [YueScript](https://yuescript.org) (`.yue`), the high-performance C++-powered evolution of MoonScript:
+```lua
+target("my_yue_app")
+    add_rules("forge.lua.app", "forge.yuescript")
+    add_files("src/**.yue")
+    set_values("forge.yuescript.target", "5.1") -- target Lua 5.1/LuaJIT ABI
+```
 
 ---
 
