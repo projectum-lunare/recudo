@@ -118,6 +118,3 @@ local function setup_fennel_rule(rule_name)
 end
 
 setup_fennel_rule("forge.lang.fennel")
-setup_fennel_rule("forge.fennel")
-setup_fennel_rule("forge.lua.fennel")
-setup_fennel_rule("fennel")

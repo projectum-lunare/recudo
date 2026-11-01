@@ -11,8 +11,6 @@ function main(T)
             local content_xmake = io.readfile("rules/lang/nelua/xmake.lua")
             T.assert_not_nil(content_xmake)
             T.assert_true(content_xmake:find('setup_nelua_rule%("forge%.lang%.nelua"%)') ~= nil)
-            T.assert_true(content_xmake:find('setup_nelua_rule%("forge%.nelua"%)') ~= nil)
-            T.assert_true(content_xmake:find('setup_nelua_rule%("nelua"%)') ~= nil)
             T.assert_true(content_xmake:find('set_extensions%("%.nelua"%)') ~= nil)
         end
     })

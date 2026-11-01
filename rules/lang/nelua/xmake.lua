@@ -121,5 +121,3 @@ local function setup_nelua_rule(rule_name)
 end
 
 setup_nelua_rule("forge.lang.nelua")
-setup_nelua_rule("forge.nelua")
-setup_nelua_rule("nelua")

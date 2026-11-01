@@ -242,5 +242,3 @@ local function setup_watcom_rule(rule_name)
 end
 
 setup_watcom_rule("forge.toolchain.watcom")
-setup_watcom_rule("forge.watcom")
-setup_watcom_rule("watcom")

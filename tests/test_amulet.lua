@@ -17,9 +17,6 @@ function main(T)
             local content_game = io.readfile("rules/engine/amulet/game.lua")
             T.assert_not_nil(content_game)
             T.assert_true(content_game:find('setup_amulet_rule%("forge%.engine%.amulet"%)') ~= nil)
-            T.assert_true(content_game:find('setup_amulet_rule%("forge%.amulet"%)') ~= nil)
-            T.assert_true(content_game:find('setup_amulet_rule%("forge%.amulet%.game"%)') ~= nil)
-            T.assert_true(content_game:find('setup_amulet_rule%("forge%.lua%.amulet"%)') ~= nil)
         end
     })
 

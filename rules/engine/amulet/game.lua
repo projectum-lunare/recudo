@@ -321,6 +321,3 @@ local function setup_amulet_rule(rule_name)
 end
 
 setup_amulet_rule("forge.engine.amulet")
-setup_amulet_rule("forge.amulet")
-setup_amulet_rule("forge.amulet.game")
-setup_amulet_rule("forge.lua.amulet")
