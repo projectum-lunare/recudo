@@ -122,6 +122,3 @@ local function setup_yuescript_rule(rule_name)
 end
 
 setup_yuescript_rule("forge.lang.yuescript")
-setup_yuescript_rule("forge.yuescript")
-setup_yuescript_rule("forge.lua.yuescript")
-setup_yuescript_rule("yuescript")

@@ -345,6 +345,3 @@ local function setup_love_rule(rule_name)
 end
 
 setup_love_rule("forge.engine.love")
-setup_love_rule("forge.love")
-setup_love_rule("forge.love.game")
-setup_love_rule("forge.lua.love")

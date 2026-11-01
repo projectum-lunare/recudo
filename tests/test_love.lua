@@ -17,9 +17,6 @@ function main(T)
             local content_game = io.readfile("rules/engine/love/game.lua")
             T.assert_not_nil(content_game)
             T.assert_true(content_game:find('setup_love_rule%("forge%.engine%.love"%)') ~= nil)
-            T.assert_true(content_game:find('setup_love_rule%("forge%.love"%)') ~= nil)
-            T.assert_true(content_game:find('setup_love_rule%("forge%.love%.game"%)') ~= nil)
-            T.assert_true(content_game:find('setup_love_rule%("forge%.lua%.love"%)') ~= nil)
         end
     })
 

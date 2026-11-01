@@ -309,5 +309,3 @@ local function setup_evc3_rule(rule_name)
 end
 
 setup_evc3_rule("forge.toolchain.evc3")
-setup_evc3_rule("forge.evc3")
-setup_evc3_rule("evc3")

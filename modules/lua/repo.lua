@@ -77,7 +77,9 @@ function publish()
                 found = true
                 local name = path.filename(pkgdir)
                 local outdir = path.join(outroot, "packages", path.filename(letterdir), name)
-                os.mkdir(outdir)
+                if not os.isdir(outdir) then
+                    os.mkdir(outdir)
+                end
                 local text = io.readfile(script) or ""
                 if text:find("package%s*%(", 1) then
                     os.cp(script, path.join(outdir, "xmake.lua"))

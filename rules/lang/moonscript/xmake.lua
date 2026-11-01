@@ -117,6 +117,3 @@ local function setup_moonscript_rule(rule_name)
 end
 
 setup_moonscript_rule("forge.lang.moonscript")
-setup_moonscript_rule("forge.moonscript")
-setup_moonscript_rule("forge.lua.moonscript")
-setup_moonscript_rule("moonscript")

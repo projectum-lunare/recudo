@@ -118,6 +118,3 @@ local function setup_teal_rule(rule_name)
 end
 
 setup_teal_rule("forge.lang.teal")
-setup_teal_rule("forge.teal")
-setup_teal_rule("forge.lua.teal")
-setup_teal_rule("teal")
