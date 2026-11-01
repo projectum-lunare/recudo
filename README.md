@@ -19,6 +19,8 @@ Instead of reinventing low-level DAG build graphs from scratch, Forge integrates
 - **Native Compiler Rules:** Direct execution of non-standard toolchains (`Open Watcom` v2 for DOS/OS2 via `owcc`/`wlib`, `Microsoft eVC 3.0` via `wibo`) using native Xmake batch commands without brittle shell/Python wrapper scripts.
 - **Cross-Platform SDK Detection:** Automatic resolution across Unix (`~/.local/opt/<sdk>`) and Windows (`%APPDATA%`, `%LOCALAPPDATA%`).
 - **First-Class Lua Subsystem (LuaRocks Alternative):** Native project management for pure Lua libraries, native C extensions (`.so`/`.dll` and static retro archives), portable executable launchers, monolithic single-binary bundlers, and zero-friction isolated environments (`LUA_PATH`/`LUA_CPATH`).
+- **Universal Multi-Runtime Engine (`@addon.forge.lua.runtime`):** Declarative orchestration of PUC-Lua, LuaJIT, and OpenResty dependencies with automated ABI buildhash isolation and semver constraints.
+- **Interactive Development & Scaffolding:** Instant REPL with project-aware environment (`xmake forge repl`) and canonical scaffolding templates (`xmake forge create`).
 - **LÖVE 2D Game Engine Integration:** Native `forge.love` rule for game development, dynamic C-extension preloading without boilerplate, fast local dev runs, and release-ready fused standalone binaries.
 - **Amulet Game Toolkit Integration:** Native `forge.amulet` rule for 2D/3D audio/visual games, dynamic C-extension preload hook into Amulet's runtime, instant development iteration, and standalone release bundle packaging (`data.pak`).
 - **Teal Typed Lua Integration:** Native `forge.teal` rule providing gradual static typing, strict type-checking, and transpilation into clean Lua.
@@ -253,6 +255,32 @@ target("app")
 
 `repository/packages/f/forge-hello` and `forge-native` are the reference recipes. LPeg has no xmake project, so its recipe writes one at install time. A new recipe lives at `packages/<initial>/<name>/xmake.lua`. Another recipe tree is registered with `add_repositories("my-lua /path/to/repo")`.
 
+#### Multi-Runtime Orchestration (`@addon.forge.lua.runtime`)
+
+Recipes in package repositories or downstream consumer projects can declare multi-runtime compatibility and version constraints with clean, boilerplate-free syntax:
+
+```lua
+package("my-extension")
+    on_load(function (package)
+        import("@addon.forge.lua.runtime").setup(package, {
+            runtime = {"lua", "luajit"},
+            version = ">=5.1 <=5.3",
+        })
+    end)
+
+    on_install(function (package)
+        io.writefile("xmake.lua", [[
+            target("my_extension")
+                add_rules("forge.lua.module")
+                add_files("src/*.c")
+        ]])
+        import("@addon.forge.lua.module").install_project(package)
+    end)
+```
+
+- **Seamless ABI Separation:** Dynamically registers runtime configurations to calculate distinct `buildhash` cache keys, preventing collisions between PUC-Lua and LuaJIT artifacts.
+- **Targeted Runtimes:** Supports `lua` (PUC-Lua), `luajit`, and `openresty-luajit`. Mono-runtime packages can declare `runtime = "luajit"` directly.
+
 ### 7. LÖVE 2D Game Engine Integration (`forge.love`)
 
 Forge provides first-class support for developing and distributing 2D games with the [LÖVE (Love2D)](https://love2d.org) engine (aliases: `forge.love.game`, `forge.lua.love`):
@@ -362,6 +390,39 @@ target("my_systems_app")
 ```bash
 xmake forge list
 ```
+
+### Interactive REPL (`xmake forge repl`)
+Launch an interactive Lua REPL with the project's exact environment, compiled C extensions, and package dependencies automatically resolved in `LUA_PATH` and `LUA_CPATH`:
+```bash
+# Default runtime (PUC-Lua)
+xmake forge repl
+
+# Run with LuaJIT
+xmake forge -r luajit repl
+
+# Evaluate an expression directly within the project environment and exit
+xmake forge --eval="local m = require('mymodule'); print(m.hello())" repl
+```
+
+### Instant Project Scaffolding (`xmake forge create`)
+Quickly instantiate new idiomatic projects from built-in templates:
+```bash
+# Create a runnable Lua app (with binary launcher)
+xmake forge create myapp -t app
+
+# Create a reusable pure Lua module
+xmake forge create mymod -t module
+
+# Create a native C extension (.so/.dll) compatible across Lua 5.1-5.4 & LuaJIT
+xmake forge create mynative -t cmodule
+
+# Create a LÖVE 2D game
+xmake forge create mygame -t love
+
+# Create an Amulet 2D/3D game
+xmake forge create myamulet -t amulet
+```
+*Tip: Standard Xmake creation syntax is also fully supported, e.g. `xmake create -l lua -t cmodule mynative`.*
 
 ### Build for a Specific Target
 Target builds are isolated by default into `build/<target>` (e.g. `build/dos`, `build/amiga`), preserving independent configurations and artifacts:
