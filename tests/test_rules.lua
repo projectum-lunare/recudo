@@ -8,7 +8,7 @@ function main(T)
     table.insert(tests, {
         name = "watcom rule supports C and C++ extensions",
         func = function ()
-            local content = io.readfile("rules/toolchain/watcom/xmake.lua")
+            local content = io.readfile(path.join(os.projectdir(), "rules/toolchain/watcom/xmake.lua"))
             T.assert_not_nil(content)
             T.assert_true(content:find('%.cpp') ~= nil, "Watcom rule should support .cpp")
             T.assert_true(content:find('%.cc') ~= nil, "Watcom rule should support .cc")
@@ -19,7 +19,7 @@ function main(T)
     table.insert(tests, {
         name = "watcom rule does not pass separated -x and c/c++ arguments",
         func = function ()
-            local content = io.readfile("rules/toolchain/watcom/xmake.lua")
+            local content = io.readfile(path.join(os.projectdir(), "rules/toolchain/watcom/xmake.lua"))
             -- Ensure "-x" is never pushed as an independent argv element
             T.assert_nil(content:match('table%.insert%(argv,%s*["\']%-x["\']%)'),
                 "Watcom rule must NOT pass separated -x argument; owcc requires attached -xc / -xc++ or no -x for C")
@@ -99,7 +99,7 @@ function main(T)
     table.insert(tests, {
         name = "evc3 rule supports C and C++ extensions",
         func = function ()
-            local content = io.readfile("rules/toolchain/evc3/xmake.lua")
+            local content = io.readfile(path.join(os.projectdir(), "rules/toolchain/evc3/xmake.lua"))
             T.assert_not_nil(content)
             T.assert_true(content:find('%.cpp') ~= nil, "eVC3 rule should support .cpp")
             T.assert_true(content:find('%.cc') ~= nil, "eVC3 rule should support .cc")
@@ -110,7 +110,7 @@ function main(T)
     table.insert(tests, {
         name = "watcom rule dynamically maps optimization, symbols and warnings",
         func = function ()
-            local content = io.readfile("rules/toolchain/watcom/xmake.lua")
+            local content = io.readfile(path.join(os.projectdir(), "rules/toolchain/watcom/xmake.lua"))
             T.assert_true(content:find('-O0') ~= nil, "Watcom should map -O0 for none/debug")
             T.assert_true(content:find('-O2') ~= nil, "Watcom should map -O2")
             T.assert_true(content:find('-Os') ~= nil, "Watcom should map -Os")
@@ -122,7 +122,7 @@ function main(T)
     table.insert(tests, {
         name = "evc3 rule dynamically maps optimization, symbols and warnings",
         func = function ()
-            local content = io.readfile("rules/toolchain/evc3/xmake.lua")
+            local content = io.readfile(path.join(os.projectdir(), "rules/toolchain/evc3/xmake.lua"))
             T.assert_true(content:find('/Od') ~= nil, "eVC3 should map /Od for none/debug")
             T.assert_true(content:find('/O1') ~= nil, "eVC3 should map /O1 for space")
             T.assert_true(content:find('/O2') ~= nil, "eVC3 should map /O2 for speed")
@@ -135,7 +135,7 @@ function main(T)
     table.insert(tests, {
         name = "watcom rule tracks header dependencies with -MMD -MF and parse_deps",
         func = function ()
-            local content = io.readfile("rules/toolchain/watcom/xmake.lua")
+            local content = io.readfile(path.join(os.projectdir(), "rules/toolchain/watcom/xmake.lua"))
             T.assert_true(content:find('-MMD') ~= nil, "Watcom rule should emit -MMD")
             T.assert_true(content:find('-MF') ~= nil, "Watcom rule should emit -MF")
             T.assert_true(content:find('parse_deps') ~= nil, "Watcom rule should parse depfiles")
@@ -146,7 +146,7 @@ function main(T)
     table.insert(tests, {
         name = "evc3 rule tracks header dependencies recursively",
         func = function ()
-            local content = io.readfile("rules/toolchain/evc3/xmake.lua")
+            local content = io.readfile(path.join(os.projectdir(), "rules/toolchain/evc3/xmake.lua"))
             T.assert_true(content:find('scan_evc3_includes') ~= nil, "eVC3 rule should define recursive include scanner")
             T.assert_true(content:find('batchcmds:add_depfiles') ~= nil, "eVC3 rule should register found headers")
         end
@@ -155,7 +155,7 @@ function main(T)
     table.insert(tests, {
         name = "evc3 rule links executables via link.exe and archives via lib.exe without host ar",
         func = function ()
-            local content = io.readfile("rules/toolchain/evc3/xmake.lua")
+            local content = io.readfile(path.join(os.projectdir(), "rules/toolchain/evc3/xmake.lua"))
             T.assert_true(content:find('link%.exe') ~= nil, "eVC3 rule must invoke link.exe for binaries")
             T.assert_true(content:find('/subsystem:windowsce') ~= nil, "eVC3 rule must specify /subsystem:windowsce")
             T.assert_true(content:find('/MACHINE:') ~= nil, "eVC3 rule must pass /MACHINE: architecture")
@@ -169,8 +169,8 @@ function main(T)
     table.insert(tests, {
         name = "rules safely resolve and deduplicate object files",
         func = function ()
-            local watcom_content = io.readfile("rules/toolchain/watcom/xmake.lua")
-            local evc3_content = io.readfile("rules/toolchain/evc3/xmake.lua")
+            local watcom_content = io.readfile(path.join(os.projectdir(), "rules/toolchain/watcom/xmake.lua"))
+            local evc3_content = io.readfile(path.join(os.projectdir(), "rules/toolchain/evc3/xmake.lua"))
 
             T.assert_true(watcom_content:find('modules%.objectfiles') ~= nil, "Watcom rule should use the shared object file list")
             T.assert_true(watcom_content:find('table%.contains%(current_objs,%s*objfile%)') ~= nil, "Watcom rule should guard against duplicate objectfiles")
@@ -179,6 +179,72 @@ function main(T)
             T.assert_true(evc3_content:find('table%.contains%(current_objs,%s*objfile%)') ~= nil, "eVC3 rule should guard against duplicate objectfiles")
         end
     })
+
+    local function ensure_mock_sdks()
+        -- Ensure mock eVC3 if not found
+        import("modules.sdk", {rootdir = os.projectdir()})
+        local entry = import("catalog", {rootdir = path.join(os.projectdir(), "modules")}).get("wince")
+        local s = sdk.find(entry.sdk_name, entry.sdk_env, {must_exist = true})
+        if not s or not os.isdir(s) then
+            local mock_evc3 = path.join(os.tmpdir(), "forge_mock_evc3")
+            os.mkdir(path.join(mock_evc3, "bin"))
+            os.mkdir(path.join(mock_evc3, "include"))
+            os.mkdir(path.join(mock_evc3, "lib", "arm"))
+            io.writefile(path.join(mock_evc3, "bin", "clarm.exe"), "")
+            io.writefile(path.join(mock_evc3, "bin", "link.exe"), "")
+            io.writefile(path.join(mock_evc3, "bin", "lib.exe"), "")
+            local mock_wibo = path.join(mock_evc3, "wibo")
+            io.writefile(mock_wibo, "#!/bin/sh\nexit 0\n")
+            if os.host() ~= "windows" then
+                os.tryrunv("chmod", {"+x", mock_wibo})
+            end
+            os.setenv("EVC3_DIR", mock_evc3)
+            os.setenv("WIBO_BIN", mock_wibo)
+        end
+
+        -- Ensure mock Watcom if not found
+        import("modules.detect.watcom", {rootdir = os.projectdir()})
+        if not watcom.is_available("WATCOM") then
+            local mock_watcom = path.join(os.tmpdir(), "forge_mock_watcom")
+            local sub = (os.host() == "linux") and "binl64" or ((os.host() == "macosx") and "binl" or "binnt")
+            os.mkdir(path.join(mock_watcom, sub))
+            os.mkdir(path.join(mock_watcom, "h"))
+            os.mkdir(path.join(mock_watcom, "h", "dos"))
+            local fake_owcc = path.join(mock_watcom, sub, "owcc" .. (os.host() == "windows" and ".exe" or ""))
+            local fake_wlib = path.join(mock_watcom, sub, "wlib" .. (os.host() == "windows" and ".exe" or ""))
+            io.writefile(fake_owcc, "#!/bin/sh\nexit 0\n")
+            io.writefile(fake_wlib, "#!/bin/sh\nexit 0\n")
+            if os.host() ~= "windows" then
+                os.tryrunv("chmod", {"+x", fake_owcc})
+                os.tryrunv("chmod", {"+x", fake_wlib})
+            end
+            os.setenv("WATCOM", mock_watcom)
+        end
+    end
+
+    local function run_dry_run(tmp, f_args)
+        ensure_mock_sdks()
+        local old_dir = os.cd(tmp)
+        local out, err
+        local ok = try {
+            function ()
+                os.execv("xmake", f_args)
+                out = os.iorunv("xmake", {"b", "-v", "--dry-run"})
+                return true
+            end,
+            catch {
+                function (errors)
+                    err = errors
+                end
+            }
+        }
+        os.cd(old_dir)
+        os.rm(tmp)
+        if not ok then
+            error(err or "dry-run execution failed")
+        end
+        return out
+    end
 
     table.insert(tests, {
         name = "evc3 end-to-end dry-run generates link.exe with wince subsystem and arm machine",
@@ -195,11 +261,7 @@ target("app")
     add_files("src/*.c")
 ]], os.projectdir()))
 
-            local old_dir = os.cd(tmp)
-            os.execv("xmake", {"f", "-p", "wince", "-a", "arm"})
-            local out = os.iorunv("xmake", {"b", "-v", "--dry-run"})
-            os.cd(old_dir)
-            os.rm(tmp)
+            local out = run_dry_run(tmp, {"f", "-p", "wince", "-a", "arm"})
 
             T.assert_true(out:find("clarm%.exe") ~= nil, "dry-run must invoke clarm.exe for compiling")
             T.assert_true(out:find("link%.exe") ~= nil, "dry-run must invoke link.exe for linking")
@@ -226,11 +288,7 @@ target("mylib")
     add_files("src/*.c")
 ]], os.projectdir()))
 
-            local old_dir = os.cd(tmp)
-            os.execv("xmake", {"f", "-p", "wince", "-a", "arm"})
-            local out = os.iorunv("xmake", {"b", "-v", "--dry-run"})
-            os.cd(old_dir)
-            os.rm(tmp)
+            local out = run_dry_run(tmp, {"f", "-p", "wince", "-a", "arm"})
 
             T.assert_true(out:find("lib%.exe") ~= nil, "dry-run must invoke lib.exe for static library")
             T.assert_true(out:find("/out:") ~= nil, "dry-run must pass /out: to lib.exe")
@@ -254,11 +312,7 @@ target("cli_app")
     add_files("src/*.c")
 ]], os.projectdir()))
 
-            local old_dir = os.cd(tmp)
-            os.execv("xmake", {"f", "-p", "wince", "-a", "arm"})
-            local out = os.iorunv("xmake", {"b", "-v", "--dry-run"})
-            os.cd(old_dir)
-            os.rm(tmp)
+            local out = run_dry_run(tmp, {"f", "-p", "wince", "-a", "arm"})
 
             T.assert_true(out:find("/entry:mainACRTStartup") ~= nil, "dry-run must pass /entry:mainACRTStartup")
             T.assert_nil(out:find("WinMainCRTStartup"), "dry-run must not pass WinMainCRTStartup when custom entry is set")
@@ -288,11 +342,7 @@ target("dos_dll")
     add_files("src/*.c")
 ]], os.projectdir()))
 
-            local old_dir = os.cd(tmp)
-            os.execv("xmake", {"f", "-p", "dos", "-a", "i386"})
-            local out = os.iorunv("xmake", {"b", "-v", "--dry-run"})
-            os.cd(old_dir)
-            os.rm(tmp)
+            local out = run_dry_run(tmp, {"f", "-p", "dos", "-a", "i386"})
 
             T.assert_true(out:find("owcc.*%-b%s+dos32a.*%-std=ow") ~= nil, "dry-run must invoke owcc with -b dos32a")
             T.assert_true(out:find("wlib.*%-q%s+%-b%s+%-c%s+%-n") ~= nil, "dry-run must invoke wlib for static lib")
@@ -316,11 +366,7 @@ target("flag_entry_app")
     add_files("src/*.c")
 ]], os.projectdir()))
 
-            local old_dir = os.cd(tmp)
-            os.execv("xmake", {"f", "-p", "wince", "-a", "arm"})
-            local out = os.iorunv("xmake", {"b", "-v", "--dry-run"})
-            os.cd(old_dir)
-            os.rm(tmp)
+            local out = run_dry_run(tmp, {"f", "-p", "wince", "-a", "arm"})
 
             T.assert_true(out:find("/entry:custom_main") ~= nil, "dry-run must pass /entry:custom_main from ldflags")
             T.assert_nil(out:find("WinMainCRTStartup"), "dry-run must not inject WinMainCRTStartup when ldflags has entry")
@@ -345,11 +391,7 @@ target("dos_flags_app")
     add_files("src/*.c")
 ]], os.projectdir()))
 
-            local old_dir = os.cd(tmp)
-            os.execv("xmake", {"f", "-p", "dos", "-a", "i386"})
-            local out = os.iorunv("xmake", {"b", "-v", "--dry-run"})
-            os.cd(old_dir)
-            os.rm(tmp)
+            local out = run_dry_run(tmp, {"f", "-p", "dos", "-a", "i386"})
 
             T.assert_true(out:find("%-O0") ~= nil, "dry-run must map optimize 'none' to -O0")
             T.assert_true(out:find("%-g2") ~= nil, "dry-run must map symbols 'debug' to -g2")
@@ -375,11 +417,7 @@ target("evc3_flags_app")
     add_files("src/*.c")
 ]], os.projectdir()))
 
-            local old_dir = os.cd(tmp)
-            os.execv("xmake", {"f", "-p", "wince", "-a", "arm"})
-            local out = os.iorunv("xmake", {"b", "-v", "--dry-run"})
-            os.cd(old_dir)
-            os.rm(tmp)
+            local out = run_dry_run(tmp, {"f", "-p", "wince", "-a", "arm"})
 
             T.assert_true(out:find("/Od") ~= nil, "dry-run must map optimize 'none' to /Od")
             T.assert_true(out:find("/Z7") ~= nil, "dry-run must map symbols 'debug' to /Z7")

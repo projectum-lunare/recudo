@@ -8,7 +8,7 @@ function main(T)
     table.insert(tests, {
         name = "teal rule files exist and define expected rule names and extensions",
         func = function ()
-            local content_xmake = io.readfile("rules/lang/teal/xmake.lua")
+            local content_xmake = io.readfile(path.join(os.projectdir(), "rules/lang/teal/xmake.lua"))
             T.assert_not_nil(content_xmake)
             T.assert_true(content_xmake:find('setup_teal_rule%("forge%.lang%.teal"%)') ~= nil)
             T.assert_true(content_xmake:find('set_extensions%("%.tl"%)') ~= nil)
