@@ -60,14 +60,14 @@ local function setup_nelua_rule(rule_name)
 
         before_buildcmd_file(function (target, batchcmds, sourcefile, opt)
             local nelua_prog = find_nelua_program(target)
-            local generator = target:values("forge.lang.nelua.generator") or target:values("forge.nelua.generator") or target:values("nelua.generator") or "c"
+            local generator = target:values("forge.lang.nelua.generator") or "c"
 
             if generator == "lua" then
                 import("lua.env")
                 local relpath = env.get_relative_path(target, sourcefile)
                 local lua_rel = (relpath:gsub("%.nelua$", ".lua"))
 
-                local outdir = target:values("forge.lang.nelua.outdir") or target:values("forge.nelua.outdir") or target:values("nelua.outdir")
+                local outdir = target:values("forge.lang.nelua.outdir")
                 if not outdir then
                     if target:data("forge.lua.is_cmodule") or target:data("forge.lua.is_pure") or target:data("forge.lua.is_app") or target:data("forge.engine.love") or target:data("forge.engine.amulet") or target:has_rules("forge.engine.love") or target:has_rules("forge.engine.amulet") then
                         outdir = path.join(os.projectdir(), "build/lua")
@@ -95,14 +95,14 @@ local function setup_nelua_rule(rule_name)
                 if target:is_mode("release") then
                     table.insert(argv, "-r")
                 end
-                if target:values("forge.lang.nelua.maximum_performance") or target:values("forge.nelua.maximum_performance") or target:values("nelua.maximum_performance") then
+                if target:values("forge.lang.nelua.maximum_performance") then
                     table.insert(argv, "-M")
                 end
-                local defines = target:values("forge.lang.nelua.defines") or target:values("forge.nelua.defines") or target:values("nelua.defines")
+                local defines = target:values("forge.lang.nelua.defines")
                 for _, def in ipairs(table.wrap(defines)) do
                     table.insert(argv, "-D" .. def)
                 end
-                local pragmas = target:values("forge.lang.nelua.pragmas") or target:values("forge.nelua.pragmas") or target:values("nelua.pragmas")
+                local pragmas = target:values("forge.lang.nelua.pragmas")
                 for _, pragma in ipairs(table.wrap(pragmas)) do
                     table.insert(argv, "-P" .. pragma)
                 end

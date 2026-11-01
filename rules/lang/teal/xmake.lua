@@ -62,7 +62,7 @@ local function setup_teal_rule(rule_name)
             local lua_rel = (relpath:gsub("%.tl$", ".lua"))
 
             -- Determine output destination
-            local outdir = target:values("forge.lang.teal.outdir") or target:values("forge.teal.outdir")
+            local outdir = target:values("forge.lang.teal.outdir")
             if not outdir then
                 if target:data("forge.lua.is_cmodule") or target:data("forge.lua.is_pure") or target:data("forge.lua.is_app") or target:data("forge.engine.love") or target:data("forge.engine.amulet") or target:has_rules("forge.engine.love") or target:has_rules("forge.engine.amulet") then
                     outdir = path.join(os.projectdir(), "build/lua")
@@ -76,9 +76,6 @@ local function setup_teal_rule(rule_name)
             -- Prepare tl gen command arguments
             local argv = {"gen"}
             local check_val = target:values("forge.lang.teal.check")
-            if check_val == nil then
-                check_val = target:values("forge.teal.check")
-            end
             if check_val ~= false then
                 table.insert(argv, "-c")
             end
@@ -99,7 +96,7 @@ local function setup_teal_rule(rule_name)
             local installdir = target:installdir()
             if not installdir then return end
 
-            local outdir = target:values("forge.lang.teal.outdir") or target:values("forge.teal.outdir") or path.join(os.projectdir(), "build/lua")
+            local outdir = target:values("forge.lang.teal.outdir") or path.join(os.projectdir(), "build/lua")
             for _, src in ipairs(table.wrap(target:sourcefiles())) do
                 if src:endswith(".tl") then
                     local relpath = env.get_relative_path(target, src)

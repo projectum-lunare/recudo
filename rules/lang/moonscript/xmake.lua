@@ -61,7 +61,7 @@ local function setup_moonscript_rule(rule_name)
             local lua_rel = (relpath:gsub("%.moon$", ".lua"))
 
             -- Determine output destination
-            local outdir = target:values("forge.lang.moonscript.outdir") or target:values("forge.moonscript.outdir") or target:values("moonscript.outdir")
+            local outdir = target:values("forge.lang.moonscript.outdir")
             if not outdir then
                 if target:data("forge.lua.is_cmodule") or target:data("forge.lua.is_pure") or target:data("forge.lua.is_app") or target:data("forge.engine.love") or target:data("forge.engine.amulet") or target:has_rules("forge.engine.love") or target:has_rules("forge.engine.amulet") then
                     outdir = path.join(os.projectdir(), "build/lua")
@@ -74,7 +74,7 @@ local function setup_moonscript_rule(rule_name)
 
             -- Prepare moonc compile command arguments
             local argv = {}
-            if target:values("forge.lang.moonscript.correlate") or target:values("forge.moonscript.correlate") or target:values("forge.moon.correlate") or target:values("moonscript.correlate") then
+            if target:values("forge.lang.moonscript.correlate") then
                 table.insert(argv, "-c")
             end
             table.insert(argv, "-o")
@@ -94,7 +94,7 @@ local function setup_moonscript_rule(rule_name)
             local installdir = target:installdir()
             if not installdir then return end
 
-            local outdir = target:values("forge.lang.moonscript.outdir") or target:values("forge.moonscript.outdir") or target:values("moonscript.outdir") or path.join(os.projectdir(), "build/lua")
+            local outdir = target:values("forge.lang.moonscript.outdir") or path.join(os.projectdir(), "build/lua")
             for _, src in ipairs(table.wrap(target:sourcefiles())) do
                 if src:endswith(".moon") then
                     local relpath = env.get_relative_path(target, src)
