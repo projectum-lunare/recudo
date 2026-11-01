@@ -230,6 +230,8 @@ local function show_list(opt)
     print("  xmake forge list                     # show this table")
     io.write("  xmake forge env                      # output LUA_PATH & LUA_CPATH (eval $(xmake forge env))\n")
     print("  xmake forge env --export-env         # generate .env file for IDEs and LuaLS")
+    print("  xmake forge repl [-r luajit]         # launch interactive REPL with project environment")
+    print("  xmake forge create <name> [-t app]   # create a new project from template (app, module, cmodule, love, amulet)")
 end
 
 local function show_env(env_opts)
@@ -262,6 +264,116 @@ local function show_env(env_opts)
     -- Standard POSIX export: eval $(xmake forge env)
     print("export LUA_PATH=\"" .. p .. "\"")
     print("export LUA_CPATH=\"" .. cp .. "\"")
+end
+
+local function start_repl(repl_opts)
+    repl_opts = repl_opts or {}
+    local lua_env = lua_environment()
+    local projdir = os.projectdir()
+    local find_tool = import("lib.detect.find_tool")
+
+    local runtime = repl_opts.runtime or "lua"
+    local interp_bin = nil
+
+    if repl_opts.interpreter then
+        interp_bin = repl_opts.interpreter
+    elseif runtime == "luajit" or runtime == "openresty" then
+        local tool = find_tool("luajit")
+        if tool and tool.program then
+            interp_bin = tool.program
+        end
+    else
+        interp_bin = lua_env.find_lua({interpreter = repl_opts.interpreter})
+        if not interp_bin then
+            local tool = find_tool("lua")
+            if tool and tool.program then
+                interp_bin = tool.program
+            end
+        end
+    end
+
+    if not interp_bin or not os.isexec(interp_bin) then
+        raise("Interpreter for runtime '%s' not found. Please install %s or specify path via --interpreter.", runtime, runtime)
+    end
+
+    local p = lua_env.get_lua_paths(projdir)
+    local cp = lua_env.get_lua_cpaths(projdir)
+
+    local builddir = path.join(projdir, "build")
+    if os.isdir(builddir) then
+        local cdirs = {}
+        for _, d in ipairs(os.dirs(path.join(builddir, "**"))) do
+            table.insert(cdirs, path.join(d, "?.so"))
+            table.insert(cdirs, path.join(d, "?.dylib"))
+            table.insert(cdirs, path.join(d, "?.dll"))
+        end
+        if #cdirs > 0 then
+            cp = table.concat(cdirs, ";") .. ";" .. cp
+        end
+    end
+
+    local ver = try { function() return os.iorunv(interp_bin, {"-v"}) end } or ""
+    ver = ver:trim():split("\n")[1] or ""
+
+    cprint("${bright magenta}╔══════════════════════════════════════════════════════════════════════════════╗${clear}")
+    cprint("${bright magenta}║${bright white}                 Projectum Lunare Forge - Interactive REPL                    ${bright magenta}║${clear}")
+    cprint("${bright magenta}╚══════════════════════════════════════════════════════════════════════════════╝${clear}")
+    cprint("${dim}Runtime    : ${bright cyan}%s${clear} ${dim}(%s)${clear}", runtime, ver)
+    cprint("${dim}Binary     : ${yellow}%s${clear}", interp_bin)
+    cprint("${dim}LUA_PATH   : ${dim}%s${clear}", p)
+    cprint("${dim}LUA_CPATH  : ${dim}%s${clear}", cp)
+    cprint("${dim}Type ${bright white}os.exit()${dim} or press ${bright white}Ctrl+D${dim} to exit.${clear}\n")
+
+    local exec_envs = {
+        LUA_PATH = p,
+        LUA_CPATH = cp,
+    }
+    if runtime == "luajit" or runtime == "openresty" then
+        exec_envs.LUAJIT_PATH = p
+        exec_envs.LUAJIT_CPATH = cp
+    end
+
+    local exec_args = {"-i"}
+    if repl_opts.eval_expr then
+        exec_args = {"-e", repl_opts.eval_expr}
+        os.execv(interp_bin, exec_args, {envs = exec_envs})
+        return
+    end
+end
+
+local function create_project(project_name, template_name, target_dir)
+    if not project_name or #project_name == 0 then
+        raise("Missing project name. Usage: xmake forge create <project_name> [-t app|module|cmodule|love|amulet]")
+    end
+    template_name = template_name or "app"
+    local templates_root = path.join(rootdir, "templates", "lua")
+    local tmpl_dir = path.join(templates_root, template_name)
+    if not os.isdir(tmpl_dir) then
+        raise("Template '%s' not found. Available templates: app, module, cmodule, love, amulet", template_name)
+    end
+
+    target_dir = target_dir or path.join(os.projectdir(), project_name)
+    if os.isdir(target_dir) and #os.files(path.join(target_dir, "*")) > 0 then
+        raise("Directory '%s' already exists and is not empty.", target_dir)
+    end
+    os.mkdir(target_dir)
+
+    for _, srcfile in ipairs(os.files(path.join(tmpl_dir, "**"))) do
+        local relpath = path.relative(srcfile, tmpl_dir)
+        if relpath ~= "template.lua" then
+            local dstfile = path.join(target_dir, relpath)
+            os.mkdir(path.directory(dstfile))
+            local content = io.readfile(srcfile)
+            content = content:gsub("%${TARGET_NAME}", project_name)
+            io.writefile(dstfile, content)
+        end
+    end
+
+    cprint("${bright green}==> [forge] Successfully created '%s' (%s project) at: ${bright white}%s${clear}", project_name, template_name, target_dir)
+    cprint("${bright cyan}To build and run your project:${clear}")
+    cprint("  cd %s", project_name)
+    cprint("  xmake")
+    cprint("  xmake run")
 end
 
 local function build_target(key, opt)
@@ -359,7 +471,7 @@ function main(...)
     local target_name = option.get("target") or "list"
 
     for _, arg in ipairs(args) do
-        if arg == "list" or arg == "env" or arg == "all" or targets[arg] then
+        if arg == "list" or arg == "env" or arg == "repl" or arg == "create" or arg == "all" or targets[arg] then
             target_name = arg
         end
     end
@@ -374,6 +486,45 @@ function main(...)
     local raw_build_target = option.get("build_target")
     local clean_build_target = (raw_build_target and not raw_build_target:startswith("-")) and raw_build_target or nil
 
+    local eval_expr = option.get("eval") or option.get("e")
+    local runtime = option.get("runtime") or option.get("r")
+    if raw_build_target and not eval_expr then
+        if raw_build_target:startswith("--eval=") then
+            eval_expr = raw_build_target:sub(8)
+            clean_build_target = nil
+        elseif raw_build_target:startswith("-e=") then
+            eval_expr = raw_build_target:sub(4)
+            clean_build_target = nil
+        end
+    end
+    if raw_build_target and not runtime then
+        if raw_build_target:startswith("--runtime=") then
+            runtime = raw_build_target:sub(11)
+            clean_build_target = nil
+        elseif raw_build_target:startswith("-r=") then
+            runtime = raw_build_target:sub(4)
+            clean_build_target = nil
+        end
+    end
+    if not eval_expr or not runtime then
+        for _, arg in ipairs(args) do
+            if not eval_expr then
+                if arg:startswith("--eval=") then
+                    eval_expr = arg:sub(8)
+                elseif arg:startswith("-e=") then
+                    eval_expr = arg:sub(4)
+                end
+            end
+            if not runtime then
+                if arg:startswith("--runtime=") then
+                    runtime = arg:sub(11)
+                elseif arg:startswith("-r=") then
+                    runtime = arg:sub(4)
+                end
+            end
+        end
+    end
+
     local opt = {
         verbose = option.get("verbose"),
         clean = option.get("clean"),
@@ -382,7 +533,12 @@ function main(...)
         isolate = not (option.get("no-isolate") or option.get("no_isolate")),
         json = is_json,
         export_env = is_export_env,
-        fish = is_fish
+        fish = is_fish,
+        runtime = runtime,
+        interpreter = option.get("interpreter"),
+        eval_expr = eval_expr,
+        template = option.get("template") or "app",
+        raw_args = args
     }
 
     target_name = aliases[target_name] or target_name
@@ -391,6 +547,19 @@ function main(...)
         show_list(opt)
     elseif target_name == "env" or is_export_env or is_json or is_fish then
         show_env(opt)
+    elseif target_name == "repl" then
+        start_repl(opt)
+    elseif target_name == "create" then
+        local proj_name = opt.build_target
+        if not proj_name then
+            for _, a in ipairs(args) do
+                if a ~= "create" and not a:startswith("-") then
+                    proj_name = a
+                    break
+                end
+            end
+        end
+        create_project(proj_name, opt.template)
     elseif target_name == "all" then
         local results = {}
         local all_opt = table.clone(opt)

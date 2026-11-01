@@ -30,7 +30,7 @@ local function setup_module_rule(rule_name)
                 -- dlopen stay static. An explicit forge.lua.kind can narrow one target.
                 local lua_module = import("lua.module", {anonymous = true})
                 import("core.project.config")
-                local marked_shared = config.get("kind") == "shared"
+                local marked_shared = (config.get("kind") == "shared") or (target:get("kind") == "shared")
                 local user_kind = target:values("forge.lua.kind")
                 if user_kind == "static" then
                     marked_shared = false
