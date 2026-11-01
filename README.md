@@ -20,6 +20,7 @@ Instead of reinventing low-level DAG build graphs from scratch, Forge integrates
 - **Cross-Platform SDK Detection:** Automatic resolution across Unix (`~/.local/opt/<sdk>`) and Windows (`%APPDATA%`, `%LOCALAPPDATA%`).
 - **First-Class Lua Subsystem (LuaRocks Alternative):** Native project management for pure Lua libraries, native C extensions (`.so`/`.dll` and static retro archives), portable executable launchers, monolithic single-binary bundlers, and zero-friction isolated environments (`LUA_PATH`/`LUA_CPATH`).
 - **LÖVE 2D Game Engine Integration:** Native `forge.love` rule for game development, dynamic C-extension preloading without boilerplate, fast local dev runs, and release-ready fused standalone binaries.
+- **Amulet Game Toolkit Integration:** Native `forge.amulet` rule for 2D/3D audio/visual games, dynamic C-extension preload hook into Amulet's runtime, instant development iteration, and standalone release bundle packaging (`data.pak`).
 - **Matrix Orchestration CLI:** High-level `xmake forge` tasks to audit, cross-compile, and benchmark builds across target architectures.
 
 ---
@@ -278,6 +279,35 @@ target("my_game")
 - `set_values("love.dir", "src")`: Explicit root directory containing `main.lua` (auto-detected by default).
 - `set_values("love.fused", true|false)`: Force fused binary generation on or off (defaults to `true` in release mode, `false` in debug mode).
 - `set_values("love.modules", {{name = "mymod", symbol = "luaopen_mymod"}})`: Manual registration for custom in-tree C modules.
+
+### 8. Amulet Game Toolkit Integration (`forge.amulet`)
+
+Forge provides first-class support for creating and distributing audio/visual 2D/3D games with the [Amulet](http://www.amulet.xyz/) game toolkit (aliases: `forge.amulet.game`, `forge.lua.amulet`):
+
+```lua
+add_rules("mode.release", "mode.debug")
+
+target("my_game")
+    add_rules("forge.amulet")
+
+    -- Add native C modules; automatically preloaded into package.preload!
+    add_packages("lua-cjson", "lpeg")
+
+    -- Game sources and assets
+    add_files("src/**.lua")
+    add_files("assets/**")
+```
+
+#### Key Capabilities:
+- **Engine Initialization Hook:** Links against `libamulet.a` and automatically injects an engine hook (`am_set_custom_init_hook`) that registers all native C extension libraries (`luaopen_*`) into `package.preload` upon startup.
+- **Fast Development Cycle (`xmake run`):** In debug mode, runs `main.lua` directly from the source tree with instant iteration and zero repacking delay.
+- **Standalone Distribution Bundle (`xmake -m release`):** Packages all game scripts, assets, and dependency modules into an optimized `data.pak` archive placed beside the standalone game executable.
+- **Dual Package Support:** Uses the enhanced `amulet` package in `projectum-lunare/xmake-repo` providing both static library linkage (`libamulet.a`), headers, and standalone CLI tool.
+
+#### Target Values & Configuration:
+- `set_values("amulet.dir", "src")`: Explicit root directory containing `main.lua` (auto-detected by default).
+- `set_values("amulet.fused", true|false)`: Force `data.pak` packaging on or off (defaults to `true` in release mode, `false` in debug mode).
+- `set_values("amulet.modules", {{name = "mymod", symbol = "luaopen_mymod"}})`: Manual registration for custom in-tree C modules.
 
 ---
 
