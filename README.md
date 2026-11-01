@@ -419,8 +419,14 @@ xmake forge create mynative -t cmodule
 # Create a LÖVE 2D game
 xmake forge create mygame -t love
 
+# Create a LÖVE 2D game with Lua 5.3 compatibility layer (utf8, table/string pack)
+xmake forge create mygame -t love-compat
+
 # Create an Amulet 2D/3D game
 xmake forge create myamulet -t amulet
+
+# Create an Amulet 2D/3D game with Lua 5.3 compatibility layer (utf8, table/string pack)
+xmake forge create myamulet -t amulet-compat
 ```
 *Tip: Standard Xmake creation syntax is also fully supported, e.g. `xmake create -l lua -t cmodule mynative`.*
 

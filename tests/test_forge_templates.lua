@@ -8,7 +8,7 @@ function main(T)
         func = function ()
             local root = os.projectdir()
             local tmpl_root = path.join(root, "templates", "lua")
-            local expected_templates = {"app", "module", "cmodule", "love", "amulet"}
+            local expected_templates = {"app", "module", "cmodule", "love", "amulet", "love-compat", "amulet-compat"}
 
             for _, name in ipairs(expected_templates) do
                 local dir = path.join(tmpl_root, name)
@@ -50,6 +50,42 @@ function main(T)
             T.assert_true(main_content:find("forge_test_gen_app") ~= nil)
 
             os.rm(tmp_proj)
+        end
+    })
+
+    table.insert(tests, {
+        name = "forge create generates and instantiates love-compat and amulet-compat templates",
+        func = function ()
+            local root = os.projectdir()
+            local tmpl_root = path.join(root, "templates", "lua")
+
+            for _, tmpl_name in ipairs({"love-compat", "amulet-compat"}) do
+                local tmp_proj = path.join(os.tmpdir(), "forge_test_" .. tmpl_name:gsub("-", "_"))
+                os.rm(tmp_proj)
+                os.mkdir(tmp_proj)
+
+                local tmpl_dir = path.join(tmpl_root, tmpl_name)
+                for _, srcfile in ipairs(os.files(path.join(tmpl_dir, "**"))) do
+                    local relpath = path.relative(srcfile, tmpl_dir)
+                    if relpath ~= "template.lua" then
+                        local dstfile = path.join(tmp_proj, relpath)
+                        os.mkdir(path.directory(dstfile))
+                        local content = io.readfile(srcfile)
+                        content = content:gsub("%${TARGET_NAME}", "my_compat_game")
+                        io.writefile(dstfile, content)
+                    end
+                end
+
+                local xmake_content = io.readfile(path.join(tmp_proj, "xmake.lua"))
+                T.assert_true(xmake_content:find('add_requires%("lua%-compat%-5%.3"%)') ~= nil, "requires lua-compat-5.3 in: " .. tmpl_name)
+                T.assert_true(xmake_content:find('add_packages%("lua%-compat%-5%.3"%)') ~= nil, "packages lua-compat-5.3 in: " .. tmpl_name)
+
+                local main_content = io.readfile(path.join(tmp_proj, "src", "main.lua"))
+                T.assert_true(main_content:find('require%("compat53"%)') ~= nil, "requires compat53 in: " .. tmpl_name)
+                T.assert_true(main_content:find('require%("compat53%.utf8"%)') ~= nil, "requires compat53.utf8 in: " .. tmpl_name)
+
+                os.rm(tmp_proj)
+            end
         end
     })
 
