@@ -49,7 +49,7 @@ local function setup_app_rule(rule_name)
             end
 
             -- Identify entry script
-            local entry = target:values("forge.lua.entry") or target:values("forge.lua.main")
+            local entry = target:values("forge.lua.entry")
             if not entry then
                 for _, f in ipairs(table.wrap(target:get("files"))) do
                     if f:endswith("main.lua") or f:endswith("cli.lua") or f:endswith("init.lua") or f:find("bin/", 1, true) then

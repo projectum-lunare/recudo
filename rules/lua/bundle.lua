@@ -75,7 +75,7 @@ local function setup_bundle_rule(rule_name)
             end
 
             -- Resolve entrypoint module name accurately preserving hierarchy
-            local entry = target:values("forge.lua.entry") or target:values("forge.lua.main") or "main"
+            local entry = target:values("forge.lua.entry") or "main"
             local entry_mod
             if entry:endswith(".lua") or entry:find("[/\\]") then
                 local entry_rel = env.get_relative_path(target, entry)

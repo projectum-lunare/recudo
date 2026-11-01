@@ -307,9 +307,9 @@ target("my_game")
 - **LuaJIT or PUC Lua Runtime:** Inherits the runtime configured in `packages/l/love` (`luajit` for maximum performance, or `lua 5.1` for PUC Lua compatibility).
 
 #### Target Values & Configuration:
-- `set_values("forge.engine.love.dir", "src")`: Explicit root directory containing `main.lua` (auto-detected by default; fallback `love.dir`).
-- `set_values("forge.engine.love.fused", true|false)`: Force fused binary generation on or off (defaults to `true` in release mode, `false` in debug mode; fallback `love.fused`).
-- `set_values("forge.engine.love.modules", {{name = "mymod", symbol = "luaopen_mymod"}})`: Manual registration for custom in-tree C modules (fallback `love.modules`).
+- `set_values("forge.engine.love.dir", "src")`: Explicit root directory containing `main.lua` (auto-detected by default).
+- `set_values("forge.engine.love.fused", true|false)`: Force fused binary generation on or off (defaults to `true` in release mode, `false` in debug mode).
+- `set_values("forge.engine.love.modules", {{name = "mymod", symbol = "luaopen_mymod"}})`: Manual registration for custom in-tree C modules.
 
 ### 8. Amulet Game Toolkit Integration (`forge.engine.amulet`)
 
@@ -336,9 +336,9 @@ target("my_game")
 - **Dual Package Support:** Uses the enhanced `amulet` package in `projectum-lunare/xmake-repo` providing both static library linkage (`libamulet.a`), headers, and standalone CLI tool.
 
 #### Target Values & Configuration:
-- `set_values("forge.engine.amulet.dir", "src")`: Explicit root directory containing `main.lua` (auto-detected by default; fallback `amulet.dir`).
-- `set_values("forge.engine.amulet.fused", true|false)`: Force `data.pak` packaging on or off (defaults to `true` in release mode, `false` in debug mode; fallback `amulet.fused`).
-- `set_values("forge.engine.amulet.modules", {{name = "mymod", symbol = "luaopen_mymod"}})`: Manual registration for custom in-tree C modules (fallback `amulet.modules`).
+- `set_values("forge.engine.amulet.dir", "src")`: Explicit root directory containing `main.lua` (auto-detected by default).
+- `set_values("forge.engine.amulet.fused", true|false)`: Force `data.pak` packaging on or off (defaults to `true` in release mode, `false` in debug mode).
+- `set_values("forge.engine.amulet.modules", {{name = "mymod", symbol = "luaopen_mymod"}})`: Manual registration for custom in-tree C modules.
 
 ### 9. Teal Typed Lua Integration (`forge.lang.teal`)
 

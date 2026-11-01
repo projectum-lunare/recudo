@@ -94,7 +94,7 @@ int main(int argc, char *argv[]) {
 ]]
 
 local function find_game_dir(target)
-    local explicit = target:values("forge.engine.amulet.dir") or target:values("amulet.dir") or target:values("forge.amulet.dir")
+    local explicit = target:values("forge.engine.amulet.dir")
     if explicit then
         return path.is_absolute(explicit) and explicit or path.join(os.projectdir(), explicit)
     end
@@ -136,8 +136,8 @@ local function get_native_modules(target, lua_module)
         end
     end
 
-    -- 2. User-declared custom modules via target:values("forge.engine.amulet.modules") or target:values("amulet.modules")
-    local custom = target:values("forge.engine.amulet.modules") or target:values("amulet.modules") or target:values("forge.amulet.modules")
+    -- 2. User-declared custom modules via target:values("forge.engine.amulet.modules")
+    local custom = target:values("forge.engine.amulet.modules")
     if custom then
         for _, mod in ipairs(table.wrap(custom)) do
             local name = mod.name
@@ -226,9 +226,6 @@ local function setup_amulet_rule(rule_name)
 
             local is_fused = target:values("forge.engine.amulet.fused")
             if is_fused == nil then
-                is_fused = target:values("amulet.fused")
-            end
-            if is_fused == nil then
                 is_fused = is_mode("release")
             end
 
@@ -296,9 +293,6 @@ local function setup_amulet_rule(rule_name)
             local args = option.get("arguments") or {}
 
             local is_fused = target:values("forge.engine.amulet.fused")
-            if is_fused == nil then
-                is_fused = target:values("amulet.fused")
-            end
             if is_fused == nil then
                 is_fused = is_mode("release")
             end

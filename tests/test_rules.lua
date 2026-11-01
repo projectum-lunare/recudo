@@ -250,7 +250,7 @@ includes("%s/includes/forge.lua")
 target("cli_app")
     set_kind("binary")
     add_rules("forge.toolchain.evc3", {override = true})
-    set_values("evc3.entry", "mainACRTStartup")
+    set_values("forge.toolchain.evc3.entry", "mainACRTStartup")
     add_files("src/*.c")
 ]], os.projectdir()))
 
