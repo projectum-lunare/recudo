@@ -3,5 +3,5 @@ function love.load()
 end
 
 function love.draw()
-    love.graphics.printf("Hello from ${TARGET_NAME} powered by LÖVE & Forge!", 0, 280, love.graphics.getWidth(), "center")
+    love.graphics.printf("Hello from ${TARGET_NAME} powered by LÖVE & Recudo!", 0, 280, love.graphics.getWidth(), "center")
 end

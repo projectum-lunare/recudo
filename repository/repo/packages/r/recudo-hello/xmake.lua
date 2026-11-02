@@ -1,15 +1,15 @@
-package("forge-native")
-    set_homepage("https://github.com/projectum-lunare/forge")
-    set_description("Example native Lua module installed by Forge")
+package("recudo-hello")
+    set_kind("library", {headeronly = true})
+    set_homepage("https://github.com/projectum-lunare/recudo")
+    set_description("Example pure Lua module installed by Recudo")
     set_license("MPL-2.0")
-    set_sourcedir(path.join(os.scriptdir(), "../../../../packages/f/forge-native"))
-    add_deps("lua")
+    set_sourcedir(path.join(os.scriptdir(), "../../../../packages/r/recudo-hello"))
 
     on_fetch(function (package, opt)
         if opt and opt.system then
             return false
         end
-        local manifest = path.join(package:installdir({readonly = true}), "share/forge/lua-modules.lua")
+        local manifest = path.join(package:installdir({readonly = true}), "share/recudo/lua-modules.lua")
         if not os.isfile(manifest) then
             return false
         end

@@ -1,9 +1,9 @@
--- Projectum Lunare Forge - Lua Build Rules & Subsystem
+-- Projectum Lunare Recudo - Lua Build Rules & Subsystem
 -- Copyright (C) 2026 Gustavo Veiga <gustavo.veiga@outlook.com.br>
 -- Mozilla Public License Version 2.0
 
 -- ==============================================================================
--- 1. Rule: forge.lua.module
+-- 1. Rule: recudo.lua.module
 -- Supports pure Lua modules, C native modules (.so/.dll), and hybrid modules.
 -- ==============================================================================
 local function setup_module_rule(rule_name)
@@ -24,14 +24,14 @@ local function setup_module_rule(rule_name)
 
             if has_c_sources then
                 -- Native C module or hybrid
-                target:data_set("forge.lua.is_cmodule", true)
+                target:data_set("recudo.lua.is_cmodule", true)
 
                 -- Project --kind selects static or shared. Platforms that cannot
-                -- dlopen stay static. An explicit forge.lua.kind can narrow one target.
+                -- dlopen stay static. An explicit recudo.lua.kind can narrow one target.
                 local lua_module = import("lua.module", {anonymous = true})
                 import("core.project.config")
                 local marked_shared = (config.get("kind") == "shared") or (target:get("kind") == "shared")
-                local user_kind = target:values("forge.lua.kind")
+                local user_kind = target:values("recudo.lua.kind")
                 if user_kind == "static" then
                     marked_shared = false
                 elseif user_kind == "shared" then
@@ -42,10 +42,10 @@ local function setup_module_rule(rule_name)
                 if is_static then
                     -- Static archive mode (.a / .lib)
                     target:set("kind", "static")
-                    target:data_set("forge.lua.is_static", true)
+                    target:data_set("recudo.lua.is_static", true)
                     local clean_name = lua_module.link_name(target:name())
                     target:set("basename", clean_name)
-                    target:data_set("forge.lua.open_symbol", lua_module.open_symbol(target:name()))
+                    target:data_set("recudo.lua.open_symbol", lua_module.open_symbol(target:name()))
                     if lua_module.supports_dynamic(target:plat()) and not target:is_plat("windows") then
                         target:add("cxflags", "-fPIC")
                     end
@@ -97,9 +97,9 @@ local function setup_module_rule(rule_name)
                 end
                 target:add("defines", "LUA_COMPAT_5_3")
                 if target:is_plat("wince") then
-                    target:add("rules", "forge.evc3", {override = true})
+                    target:add("rules", "recudo.evc3", {override = true})
                 elseif target:is_plat("dos", "os2") then
-                    target:add("rules", "forge.watcom", {override = true})
+                    target:add("rules", "recudo.watcom", {override = true})
                 end
                 local vintage = target:is_plat("wince", "dos", "os2", "amiga", "atari", "kolibri", "plan9")
                 if vintage then
@@ -111,7 +111,7 @@ local function setup_module_rule(rule_name)
             else
                 -- Pure Lua library
                 target:set("kind", "phony")
-                target:data_set("forge.lua.is_pure", true)
+                target:data_set("recudo.lua.is_pure", true)
             end
 
             -- Automatically export canonical environment paths to target runtime
@@ -120,7 +120,7 @@ local function setup_module_rule(rule_name)
         end)
 
         on_config(function (target)
-            if target:data("forge.lua.is_cmodule") then
+            if target:data("recudo.lua.is_cmodule") then
                 local lua_pkg = target:pkg("lua") or target:pkg("luajit") or target:pkg("openresty-luajit")
                 if lua_pkg then
                     local dirs = table.join(table.wrap(lua_pkg:get("sysincludedirs")), table.wrap(lua_pkg:get("includedirs")))
@@ -161,7 +161,7 @@ local function setup_module_rule(rule_name)
                     os.cp(f, dst2)
 
                     -- Namespaced mirror if parent_module is explicitly configured
-                    local parent = target:values("forge.lua.parent_module") or target:data("forge.lua.parent_module")
+                    local parent = target:values("recudo.lua.parent_module") or target:data("recudo.lua.parent_module")
                     if parent then
                         local dst_sub1 = path.join(target:installdir(), "share/lua", parent, rel)
                         os.mkdir(path.directory(dst_sub1))
@@ -194,7 +194,7 @@ local function setup_module_rule(rule_name)
                 end
             end
             local record
-            if target:data("forge.lua.is_pure") then
+            if target:data("recudo.lua.is_pure") then
                 local src
                 for _, f in ipairs(table.wrap(target:sourcefiles())) do
                     if f:endswith(".lua") then
@@ -210,11 +210,11 @@ local function setup_module_rule(rule_name)
                     os.cp(src, dst)
                     record = {name = name, kind = "lua", relpath = rel}
                 end
-            elseif target:data("forge.lua.is_cmodule") then
+            elseif target:data("recudo.lua.is_cmodule") then
                 local symbol = lua_module.open_symbol(name)
                 local link = lua_module.link_name(name)
                 record = {name = name, kind = "c", symbol = symbol, link = link}
-                if target:data("forge.lua.is_static") then
+                if target:data("recudo.lua.is_static") then
                     local installed = path.join(target:libdir(), path.filename(target:targetfile()))
                     if os.isfile(installed) then
                         record.relpath = path.relative(installed, installdir):gsub("\\", "/")
@@ -249,5 +249,5 @@ local function setup_module_rule(rule_name)
         end)
 end
 
-setup_module_rule("forge.lua.module")
+setup_module_rule("recudo.lua.module")
 

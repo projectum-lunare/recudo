@@ -2,7 +2,7 @@
 require("compat53")
 local utf8 = require("compat53.utf8")
 
-local message = "Hello from ${TARGET_NAME} powered by LÖVE, Lua 5.3 Compat & Forge! 🚀"
+local message = "Hello from ${TARGET_NAME} powered by LÖVE, Lua 5.3 Compat & Recudo! 🚀"
 
 function love.load()
     love.window.setTitle("${TARGET_NAME}")

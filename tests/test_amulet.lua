@@ -1,4 +1,4 @@
--- Unit Tests: Amulet Game Toolkit Rule (forge.amulet)
+-- Unit Tests: Amulet Game Toolkit Rule (recudo.amulet)
 -- Copyright (C) 2026 Gustavo Veiga <gustavo.veiga@outlook.com.br>
 -- Mozilla Public License Version 2.0
 
@@ -16,7 +16,7 @@ function main(T)
 
             local content_game = io.readfile(path.join(os.projectdir(), "rules/engine/amulet/game.lua"))
             T.assert_not_nil(content_game)
-            T.assert_true(content_game:find('setup_amulet_rule%("forge%.engine%.amulet"%)') ~= nil)
+            T.assert_true(content_game:find('setup_amulet_rule%("recudo%.engine%.amulet"%)') ~= nil)
         end
     })
 
@@ -41,7 +41,7 @@ function main(T)
             T.assert_true(code:find("int luaopen_cjson%(lua_State %*L%);") ~= nil)
             T.assert_true(code:find("int luaopen_lpeg%(lua_State %*L%);") ~= nil)
             T.assert_true(code:find("extern int am_main%(int argc, char %*argv%[%]%);") ~= nil)
-            T.assert_true(code:find("am_set_custom_init_hook%(forge_amulet_init_hook%);") ~= nil)
+            T.assert_true(code:find("am_set_custom_init_hook%(recudo_amulet_init_hook%);") ~= nil)
             T.assert_true(code:find('amulet_preload%(L, luaopen_cjson, "cjson"%);') ~= nil)
             T.assert_true(code:find('amulet_preload%(L, luaopen_lpeg, "lpeg"%);') ~= nil)
             T.assert_true(code:find("return am_main%(argc, argv%);") ~= nil)
@@ -49,7 +49,7 @@ function main(T)
     })
 
     table.insert(tests, {
-        name = "amulet rule discovers native modules dynamically via forge lua module tree",
+        name = "amulet rule discovers native modules dynamically via recudo lua module tree",
         func = function ()
             local content_game = io.readfile(path.join(os.projectdir(), "rules/engine/amulet/game.lua"))
             T.assert_true(content_game:find('KNOWN_NATIVE_MODULES') == nil, "Should not maintain a hardcoded list")

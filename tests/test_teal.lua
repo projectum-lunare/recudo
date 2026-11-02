@@ -1,4 +1,4 @@
--- Unit Tests: Teal Language Rule (forge.teal)
+-- Unit Tests: Teal Language Rule (recudo.teal)
 -- Copyright (C) 2026 Gustavo Veiga <gustavo.veiga@outlook.com.br>
 -- Mozilla Public License Version 2.0
 
@@ -10,7 +10,7 @@ function main(T)
         func = function ()
             local content_xmake = io.readfile(path.join(os.projectdir(), "rules/lang/teal/xmake.lua"))
             T.assert_not_nil(content_xmake)
-            T.assert_true(content_xmake:find('setup_teal_rule%("forge%.lang%.teal"%)') ~= nil)
+            T.assert_true(content_xmake:find('setup_teal_rule%("recudo%.lang%.teal"%)') ~= nil)
             T.assert_true(content_xmake:find('set_extensions%("%.tl"%)') ~= nil)
         end
     })
@@ -37,7 +37,7 @@ function main(T)
                 return
             end
 
-            local tmpdir = path.join(os.tmpdir(), "forge_test_teal")
+            local tmpdir = path.join(os.tmpdir(), "recudo_test_teal")
             os.mkdir(tmpdir)
 
             -- 1. Valid typed code

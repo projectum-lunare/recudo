@@ -1,4 +1,4 @@
--- Unit Tests: Nelua Systems Language Rule (forge.nelua)
+-- Unit Tests: Nelua Systems Language Rule (recudo.nelua)
 -- Copyright (C) 2026 Gustavo Veiga <gustavo.veiga@outlook.com.br>
 -- Mozilla Public License Version 2.0
 
@@ -10,7 +10,7 @@ function main(T)
         func = function ()
             local content_xmake = io.readfile(path.join(os.projectdir(), "rules/lang/nelua/xmake.lua"))
             T.assert_not_nil(content_xmake)
-            T.assert_true(content_xmake:find('setup_nelua_rule%("forge%.lang%.nelua"%)') ~= nil)
+            T.assert_true(content_xmake:find('setup_nelua_rule%("recudo%.lang%.nelua"%)') ~= nil)
             T.assert_true(content_xmake:find('set_extensions%("%.nelua"%)') ~= nil)
         end
     })
@@ -40,7 +40,7 @@ function main(T)
                 return
             end
 
-            local tmpdir = path.join(os.tmpdir(), "forge_test_nelua")
+            local tmpdir = path.join(os.tmpdir(), "recudo_test_nelua")
             os.mkdir(tmpdir)
 
             local test_nelua = path.join(tmpdir, "test.nelua")

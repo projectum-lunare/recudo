@@ -1,4 +1,4 @@
--- Projectum Lunare Forge - Test Runner
+-- Projectum Lunare Recudo - Test Runner
 -- Simple, zero-dependency unit test runner for xmake Lua
 
 local total_tests = 0
@@ -128,7 +128,7 @@ function main(...)
     local test_dir = path.join(projdir, "tests")
 
     cprint("${bright magenta}╔══════════════════════════════════════════════════════════════════════════════╗")
-    cprint("${bright magenta}║${bright yellow}                 Projectum Lunare Forge - Test Suite                          ${bright magenta}║")
+    cprint("${bright magenta}║${bright yellow}                 Projectum Lunare Recudo - Test Suite                          ${bright magenta}║")
     cprint("${bright magenta}╚══════════════════════════════════════════════════════════════════════════════╝${clear}")
 
     local test_files = os.files(path.join(test_dir, "test_*.lua"))

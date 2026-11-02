@@ -1,4 +1,4 @@
--- Projectum Lunare Forge
+-- Projectum Lunare Recudo
 -- Toolchain: KolibriOS x86 (kos32-gcc)
 -- Reference: dotstar/scripts/tools/kolibrios-sdk.lua and solo/mk/kolibri.mk
 

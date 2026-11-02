@@ -1,8 +1,8 @@
 add_rules("mode.debug", "mode.release")
-add_requires("forge master", {kind = "addon"})
+add_requires("recudo master", {kind = "addon"})
 
-includes("@addon/forge/forge.lua")
+includes("@addon/recudo/recudo.lua")
 
 target("${TARGET_NAME}")
-    add_rules("forge.lua.app")
+    add_rules("recudo.lua.app")
     add_files("src/main.lua")

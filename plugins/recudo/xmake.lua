@@ -1,9 +1,9 @@
--- Projectum Lunare Forge
+-- Projectum Lunare Recudo
 -- Reference: https://xmake.io/guide/extensions/addons/introduction.html
 
 local menu_conf = {
-    usage = "xmake forge [options] [target] [build_target]",
-    description = "Projectum Lunare Forge - Cross-Compilation, Toolchain & Lua Engine",
+    usage = "xmake recudo [options] [target] [build_target]",
+    description = "Projectum Lunare Recudo - Cross-Compilation, Toolchain & Lua Engine",
     options = {
         {'c', "clean",         "k",  nil,    "Clean reconfigure before build."},
         {'a', "arch",          "kv", nil,    "Target architecture (e.g. x86_64, arm64, i386, m68k, etc.)."},
@@ -22,7 +22,7 @@ local menu_conf = {
     }
 }
 
-task("forge")
+task("recudo")
     set_category("plugin")
     set_menu(menu_conf)
     on_run("main")

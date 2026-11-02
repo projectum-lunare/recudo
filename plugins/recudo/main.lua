@@ -1,4 +1,4 @@
--- Projectum Lunare Forge
+-- Projectum Lunare Recudo
 -- Copyright (C) 2026 Gustavo Veiga <gustavo.veiga@outlook.com.br>
 -- Mozilla Public License Version 2.0
 
@@ -193,7 +193,7 @@ end
 local function show_list(opt)
     opt = opt or {}
     cprint("${bright magenta}╔══════════════════════════════════════════════════════════════════════════════╗")
-    cprint("${bright magenta}║${bright yellow}            Projectum Lunare Forge - Cross-Compilation Toolchains             ${bright magenta}║")
+    cprint("${bright magenta}║${bright yellow}            Projectum Lunare Recudo - Cross-Compilation Toolchains             ${bright magenta}║")
     cprint("${bright magenta}╠══════════════════════════════════════════════════════════════════════════════╣")
     cprint("${bright magenta}║ ${dim}Target       Status Toolchain  SDK Location / Platform Notes                 ${bright magenta}║")
     cprint("${bright magenta}╟──────────────────────────────────────────────────────────────────────────────╢")
@@ -225,13 +225,13 @@ local function show_list(opt)
     end
 
     print("\nUsage:")
-    print("  xmake forge <target> [build_target]  # e.g. xmake forge amiga, xmake forge posix")
-    print("  xmake forge all                      # build all available targets")
-    print("  xmake forge list                     # show this table")
-    io.write("  xmake forge env                      # output LUA_PATH & LUA_CPATH (eval $(xmake forge env))\n")
-    print("  xmake forge env --export-env         # generate .env file for IDEs and LuaLS")
-    print("  xmake forge repl [-r luajit]         # launch interactive REPL with project environment")
-    print("  xmake forge create <name> [-t app]   # create a new project from template (app, module, cmodule, love, amulet, love-compat, amulet-compat)")
+    print("  xmake recudo <target> [build_target]  # e.g. xmake recudo amiga, xmake recudo posix")
+    print("  xmake recudo all                      # build all available targets")
+    print("  xmake recudo list                     # show this table")
+    io.write("  xmake recudo env                      # output LUA_PATH & LUA_CPATH (eval $(xmake recudo env))\n")
+    print("  xmake recudo env --export-env         # generate .env file for IDEs and LuaLS")
+    print("  xmake recudo repl [-r luajit]         # launch interactive REPL with project environment")
+    print("  xmake recudo create <name> [-t app]   # create a new project from template (app, module, cmodule, love, amulet, love-compat, amulet-compat)")
 end
 
 local function show_env(env_opts)
@@ -242,7 +242,7 @@ local function show_env(env_opts)
     if env_opts.export_env then
         local env_file = path.join(projdir, ".env")
         lua_env.write_dotenv(projdir, env_file)
-        cprint("${bright green}==> [forge] Exported environment to: ${bright white}%s${clear}", env_file)
+        cprint("${bright green}==> [recudo] Exported environment to: ${bright white}%s${clear}", env_file)
         return
     end
 
@@ -261,7 +261,7 @@ local function show_env(env_opts)
         return
     end
 
-    -- Standard POSIX export: eval $(xmake forge env)
+    -- Standard POSIX export: eval $(xmake recudo env)
     print("export LUA_PATH=\"" .. p .. "\"")
     print("export LUA_CPATH=\"" .. cp .. "\"")
 end
@@ -316,7 +316,7 @@ local function start_repl(repl_opts)
     ver = ver:trim():split("\n")[1] or ""
 
     cprint("${bright magenta}╔══════════════════════════════════════════════════════════════════════════════╗${clear}")
-    cprint("${bright magenta}║${bright white}                 Projectum Lunare Forge - Interactive REPL                    ${bright magenta}║${clear}")
+    cprint("${bright magenta}║${bright white}                 Projectum Lunare Recudo - Interactive REPL                    ${bright magenta}║${clear}")
     cprint("${bright magenta}╚══════════════════════════════════════════════════════════════════════════════╝${clear}")
     cprint("${dim}Runtime    : ${bright cyan}%s${clear} ${dim}(%s)${clear}", runtime, ver)
     cprint("${dim}Binary     : ${yellow}%s${clear}", interp_bin)
@@ -343,7 +343,7 @@ end
 
 local function create_project(project_name, template_name, target_dir)
     if not project_name or #project_name == 0 then
-        raise("Missing project name. Usage: xmake forge create <project_name> [-t app|module|cmodule|love|amulet|love-compat|amulet-compat]")
+        raise("Missing project name. Usage: xmake recudo create <project_name> [-t app|module|cmodule|love|amulet|love-compat|amulet-compat]")
     end
     template_name = template_name or "app"
     template_name = template_name:gsub("_", "-")
@@ -374,7 +374,7 @@ local function create_project(project_name, template_name, target_dir)
         end
     end
 
-    cprint("${bright green}==> [forge] Successfully created '%s' (%s project) at: ${bright white}%s${clear}", project_name, template_name, target_dir)
+    cprint("${bright green}==> [recudo] Successfully created '%s' (%s project) at: ${bright white}%s${clear}", project_name, template_name, target_dir)
     cprint("${bright cyan}To build and run your project:${clear}")
     cprint("  cd %s", project_name)
     cprint("  xmake")
@@ -384,7 +384,7 @@ end
 local function build_target(key, opt)
     local t = targets[key]
     if not t then
-        raise("Unknown forge target: " .. key .. " (run 'xmake forge list' to see available targets)")
+        raise("Unknown recudo target: " .. key .. " (run 'xmake recudo list' to see available targets)")
     end
 
     local target_arch = opt.arch or t.arch
@@ -392,7 +392,7 @@ local function build_target(key, opt)
         raise("SDK/Toolchain for target '" .. key .. "' not available. Expected at: " .. (get_sdk_path(t, target_arch) or "unknown"))
     end
 
-    cprint("${bright yellow}==> [forge] Configuring target: ${bright cyan}" .. t.name .. "${clear}")
+    cprint("${bright yellow}==> [recudo] Configuring target: ${bright cyan}" .. t.name .. "${clear}")
 
     local config_args = {"f", "-p", t.plat}
     if target_arch then
@@ -413,7 +413,7 @@ local function build_target(key, opt)
         table.insert(config_args, target_builddir)
         exec_opt.envs = {XMAKE_CONFIGDIR = path.absolute(path.join(target_builddir, ".xmake"), os.projectdir())}
         if opt.silent_log then
-            logfile = path.join(target_builddir, "forge.log")
+            logfile = path.join(target_builddir, "recudo.log")
             exec_opt.stdout = logfile
             exec_opt.stderr = logfile
         end
@@ -426,7 +426,7 @@ local function build_target(key, opt)
     os.execv("xmake", config_args, exec_opt)
 
     local target_desc = opt.build_target and ("target '" .. opt.build_target .. "'") or "default target(s)"
-    cprint("${bright yellow}==> [forge] Building " .. target_desc .. " for ${bright cyan}" .. key .. "${clear}...")
+    cprint("${bright yellow}==> [recudo] Building " .. target_desc .. " for ${bright cyan}" .. key .. "${clear}...")
     local build_args = {"build"}
     if opt.verbose then
         table.insert(build_args, "-v")
@@ -437,7 +437,7 @@ local function build_target(key, opt)
 
     os.execv("xmake", build_args, exec_opt)
 
-    cprint("${bright green}==> [forge] SUCCESS: Built " .. target_desc .. " for ${bright white}" .. t.name .. "${clear}\n")
+    cprint("${bright green}==> [recudo] SUCCESS: Built " .. target_desc .. " for ${bright white}" .. t.name .. "${clear}\n")
     return logfile
 end
 
@@ -604,7 +604,7 @@ function main(...)
             if is_sdk_available(t, target_arch) then
                 local start_time = os.mclock()
                 local err_msg = nil
-                local logfile = path.join("build", key, "forge.log")
+                local logfile = path.join("build", key, "recudo.log")
                 local ok = try {
                     function ()
                         local lf = build_target(key, all_opt)
@@ -626,7 +626,7 @@ function main(...)
 
         local has_failures = false
         cprint("\n${bright green}══════════════════════════════════════════════════════════════════════════════")
-        cprint("${bright green}                       FORGE MATRIX BUILD SUMMARY")
+        cprint("${bright green}                       RECUDO MATRIX BUILD SUMMARY")
         cprint("══════════════════════════════════════════════════════════════════════════════${clear}")
         for _, r in ipairs(results) do
             local status_text
@@ -644,7 +644,7 @@ function main(...)
 
         if has_failures then
             cprint("${bright red}══════════════════════════════════════════════════════════════════════════════")
-            cprint("${bright red}                       FORGE MATRIX FAILURE DETAILS")
+            cprint("${bright red}                       RECUDO MATRIX FAILURE DETAILS")
             cprint("══════════════════════════════════════════════════════════════════════════════${clear}")
             for _, r in ipairs(results) do
                 if not r.ok and not r.skipped then
@@ -668,7 +668,7 @@ function main(...)
                 end
             end
             cprint("${bright red}══════════════════════════════════════════════════════════════════════════════${clear}\n")
-            raise("Forge matrix build failed for one or more targets.")
+            raise("Recudo matrix build failed for one or more targets.")
         end
     else
         build_target(target_name, opt)

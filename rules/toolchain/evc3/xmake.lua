@@ -1,4 +1,4 @@
--- Projectum Lunare Forge
+-- Projectum Lunare Recudo
 -- Rule: Microsoft Embedded Visual C++ 3.0 via wibo (Windows CE)
 -- Native Xmake batchcmds execution (no external shell/python wrappers)
 
@@ -249,7 +249,7 @@ local function setup_evc3_rule(rule_name)
                     table.insert(argv, f)
                 end
 
-                local custom_entry = target:values("forge.toolchain.evc3.entry")
+                local custom_entry = target:values("recudo.toolchain.evc3.entry")
                 if custom_entry and not has_entry then
                     table.insert(argv, "/entry:" .. custom_entry)
                     has_entry = true
@@ -258,7 +258,7 @@ local function setup_evc3_rule(rule_name)
                 if not has_entry and target:is_binary() then
                     -- Standard Windows CE GUI apps enter via WinMainCRTStartup (which invokes WinMain).
                     -- Console/CLI applications with a standard main() should specify /entry:mainACRTStartup
-                    -- via set_values("forge.toolchain.evc3.entry", "mainACRTStartup") or add_ldflags("/entry:mainACRTStartup").
+                    -- via set_values("recudo.toolchain.evc3.entry", "mainACRTStartup") or add_ldflags("/entry:mainACRTStartup").
                     table.insert(argv, "/entry:WinMainCRTStartup")
                 end
 
@@ -308,4 +308,4 @@ local function setup_evc3_rule(rule_name)
         end)
 end
 
-setup_evc3_rule("forge.toolchain.evc3")
+setup_evc3_rule("recudo.toolchain.evc3")

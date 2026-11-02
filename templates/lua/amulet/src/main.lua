@@ -2,6 +2,6 @@ local am = require("amulet")
 
 function am.init()
     local win = am.window{title = "${TARGET_NAME}"}
-    local text = am.text("Hello from ${TARGET_NAME} powered by Amulet & Forge!")
+    local text = am.text("Hello from ${TARGET_NAME} powered by Amulet & Recudo!")
     win.scene = text
 end

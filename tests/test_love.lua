@@ -1,4 +1,4 @@
--- Unit Tests: LÖVE 2D Game Rule (forge.love)
+-- Unit Tests: LÖVE 2D Game Rule (recudo.love)
 -- Copyright (C) 2026 Gustavo Veiga <gustavo.veiga@outlook.com.br>
 -- Mozilla Public License Version 2.0
 
@@ -16,7 +16,7 @@ function main(T)
 
             local content_game = io.readfile(path.join(os.projectdir(), "rules/engine/love/game.lua"))
             T.assert_not_nil(content_game)
-            T.assert_true(content_game:find('setup_love_rule%("forge%.engine%.love"%)') ~= nil)
+            T.assert_true(content_game:find('setup_love_rule%("recudo%.engine%.love"%)') ~= nil)
         end
     })
 
@@ -49,7 +49,7 @@ function main(T)
     })
 
     table.insert(tests, {
-        name = "love rule discovers native modules dynamically via forge lua module tree",
+        name = "love rule discovers native modules dynamically via recudo lua module tree",
         func = function ()
             local content_game = io.readfile(path.join(os.projectdir(), "rules/engine/love/game.lua"))
             -- Verify it uses dynamic tree inspection rather than hardcoded tables

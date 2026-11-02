@@ -1,4 +1,4 @@
--- Projectum Lunare Forge - Micro Template Engine
+-- Projectum Lunare Recudo - Micro Template Engine
 -- Copyright (C) 2026 Gustavo Veiga <gustavo.veiga@outlook.com.br>
 -- Mozilla Public License Version 2.0
 --

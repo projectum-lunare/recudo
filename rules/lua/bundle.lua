@@ -1,9 +1,9 @@
--- Projectum Lunare Forge - Lua Build Rules & Subsystem
+-- Projectum Lunare Recudo - Lua Build Rules & Subsystem
 -- Copyright (C) 2026 Gustavo Veiga <gustavo.veiga@outlook.com.br>
 -- Mozilla Public License Version 2.0
 
 -- ==============================================================================
--- 4. Rule: forge.lua.bundle
+-- 4. Rule: recudo.lua.bundle
 -- Monolithic standalone C89 binary bundling Lua runtime and byte arrays.
 -- ==============================================================================
 local function setup_bundle_rule(rule_name)
@@ -13,7 +13,7 @@ local function setup_bundle_rule(rule_name)
 
         on_load(function (target)
             target:set("kind", "binary")
-            target:values_set("forge.lua.bundle", true)
+            target:values_set("recudo.lua.bundle", true)
 
             local has_lua = false
             for _, pkg in ipairs(table.wrap(target:get("packages"))) do
@@ -75,7 +75,7 @@ local function setup_bundle_rule(rule_name)
             end
 
             -- Resolve entrypoint module name accurately preserving hierarchy
-            local entry = target:values("forge.lua.entry") or "main"
+            local entry = target:values("recudo.lua.entry") or "main"
             local entry_mod
             if entry:endswith(".lua") or entry:find("[/\\]") then
                 local entry_rel = env.get_relative_path(target, entry)
@@ -86,7 +86,7 @@ local function setup_bundle_rule(rule_name)
 
             local bundle_c = path.join(target:autogendir(), "bundle.c")
 
-            local tmpl_file = target:values("forge.lua.template")
+            local tmpl_file = target:values("recudo.lua.template")
             if tmpl_file and not path.is_absolute(tmpl_file) then
                 tmpl_file = path.join(os.projectdir(), tmpl_file)
             end
@@ -120,5 +120,5 @@ local function setup_bundle_rule(rule_name)
         end)
 end
 
-setup_bundle_rule("forge.lua.bundle")
+setup_bundle_rule("recudo.lua.bundle")
 

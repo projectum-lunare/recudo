@@ -23,7 +23,7 @@ function main(T)
     table.insert(tests, {
         name = "open_symbol and link_name sanitize module names",
         func = function ()
-            T.assert_equal(lua_module.open_symbol("forge.native"), "luaopen_forge_native")
+            T.assert_equal(lua_module.open_symbol("recudo.native"), "luaopen_recudo_native")
             T.assert_equal(lua_module.open_symbol("socket.core"), "luaopen_socket_core")
             T.assert_equal(lua_module.link_name("foo-bar.baz"), "foo_bar_baz")
         end
@@ -32,9 +32,9 @@ function main(T)
     table.insert(tests, {
         name = "module paths follow require lookup",
         func = function ()
-            T.assert_equal(lua_module.module_lua_relpath("forge.hello", "hello.lua"), "forge/hello.lua")
-            T.assert_equal(lua_module.module_lua_relpath("forge.hello", "hello/init.lua"), "forge/hello/init.lua")
-            T.assert_equal(lua_module.module_c_relpath("forge.native", "so"), "forge/native.so")
+            T.assert_equal(lua_module.module_lua_relpath("recudo.hello", "hello.lua"), "recudo/hello.lua")
+            T.assert_equal(lua_module.module_lua_relpath("recudo.hello", "hello/init.lua"), "recudo/hello/init.lua")
+            T.assert_equal(lua_module.module_c_relpath("recudo.native", "so"), "recudo/native.so")
             T.assert_equal(lua_module.module_c_relpath("cjson", ".dll"), "cjson.dll")
         end
     })
@@ -56,7 +56,7 @@ function main(T)
     table.insert(tests, {
         name = "install writes a pure Lua module manifest",
         func = function ()
-            local root = path.join(os.tmpdir(), "forge_lua_pkg_unit")
+            local root = path.join(os.tmpdir(), "recudo_lua_pkg_unit")
             os.tryrm(root)
             os.mkdir(root)
             local src = path.join(root, "hello.lua")
@@ -71,19 +71,19 @@ function main(T)
             }
             lua_module.install(pkg, {
                 modules = {
-                    ["forge.hello"] = src,
-                    ["forge.inline"] = "return {inline = true}\n"
+                    ["recudo.hello"] = src,
+                    ["recudo.inline"] = "return {inline = true}\n"
                 }
             })
 
             local manifest = lua_module.load_manifest(installdir)
             T.assert_not_nil(manifest)
             T.assert_equal(manifest.luaver, "5.4")
-            T.assert_equal(manifest.modules[1].name, "forge.hello")
+            T.assert_equal(manifest.modules[1].name, "recudo.hello")
             T.assert_equal(manifest.modules[1].kind, "lua")
             T.assert_true(os.isfile(path.join(installdir, manifest.modules[1].relpath)))
-            T.assert_equal(manifest.modules[2].name, "forge.inline")
-            T.assert_true(os.isfile(path.join(installdir, "share/lua/5.4/forge/inline.lua")))
+            T.assert_equal(manifest.modules[2].name, "recudo.inline")
+            T.assert_true(os.isfile(path.join(installdir, "share/lua/5.4/recudo/inline.lua")))
 
             local patterns = lua_module.search_patterns({installdir}, "path")
             T.assert_true(#patterns >= 1, "pure Lua package should publish a LUA_PATH pattern")
@@ -96,40 +96,40 @@ function main(T)
             T.assert_true(closed:find(";;", 1, true) == nil, "sandbox LUA_PATH must not reopen the system path")
 
             local bundled = lua_module.bundle_sources({installdir})
-            T.assert_equal(bundled.module_map[bundled.files[1]], "forge.hello")
+            T.assert_equal(bundled.module_map[bundled.files[1]], "recudo.hello")
             local code = bundler.generate_bundle_source(bundled.files, {
                 entry_module = "main",
                 file_map = bundled.file_map,
                 module_map = bundled.module_map,
-                native_modules = {{name = "forge.native", symbol = "luaopen_forge_native"}},
+                native_modules = {{name = "recudo.native", symbol = "luaopen_recudo_native"}},
                 cpath = installdir .. "/lib/lua/5.4/?.so",
                 include_main = true
             })
-            T.assert_true(code:find("luaopen_forge_native") ~= nil, "bundle should declare the static luaopen symbol")
-            T.assert_true(code:find("forge%.native") ~= nil, "bundle should preload the native module name")
+            T.assert_true(code:find("luaopen_recudo_native") ~= nil, "bundle should declare the static luaopen symbol")
+            T.assert_true(code:find("recudo%.native") ~= nil, "bundle should preload the native module name")
             T.assert_true(code:find("package") ~= nil and code:find("cpath") ~= nil, "bundle should set package.cpath")
             os.tryrm(root)
         end
     })
 
     table.insert(tests, {
-        name = "forge.lua.bin installs a Lua program into bin",
+        name = "recudo.lua.bin installs a Lua program into bin",
         func = function ()
-            local root = path.join(os.tmpdir(), "forge_lua_bin")
+            local root = path.join(os.tmpdir(), "recudo_lua_bin")
             local prefix = path.join(root, "prefix")
             os.tryrm(root)
             os.mkdir(path.join(root, "src"))
             os.mkdir(path.join(root, "src", "bin"))
-            local forge_lua = path.join(os.projectdir(), "includes", "forge.lua")
-            io.writefile(path.join(root, "src", "bin", "tool"), "#!/usr/bin/env lua\nprint('forge-bin-ok')\n")
+            local recudo_lua = path.join(os.projectdir(), "includes", "recudo.lua")
+            io.writefile(path.join(root, "src", "bin", "tool"), "#!/usr/bin/env lua\nprint('recudo-bin-ok')\n")
             io.writefile(path.join(root, "xmake.lua"), string.format([[
-set_project("forge_lua_bin")
+set_project("recudo_lua_bin")
 includes(%q)
 
 target("tool")
-    add_rules("forge.lua.bin")
+    add_rules("recudo.lua.bin")
     add_files("src/bin/tool")
-]], forge_lua))
+]], recudo_lua))
             local xmake_opt = {curdir = root}
             os.execv("xmake", {"f", "-c", "-y", "-m", "release"}, xmake_opt)
             os.execv("xmake", {"install", "-y", "-o", prefix}, xmake_opt)
@@ -139,7 +139,7 @@ target("tool")
             local lua_tool = find_tool("lua")
             if lua_tool then
                 local out = os.iorunv(bin, {})
-                T.assert_true(out:find("forge-bin-ok", 1, true) ~= nil, out)
+                T.assert_true(out:find("recudo-bin-ok", 1, true) ~= nil, out)
             end
             os.tryrm(root)
         end
@@ -148,43 +148,43 @@ target("tool")
     table.insert(tests, {
         name = "shared mode runs the Lua app against shared recipes",
         func = function ()
-            local root = path.join(os.tmpdir(), "forge_lua_pkg_app")
+            local root = path.join(os.tmpdir(), "recudo_lua_pkg_app")
             os.tryrm(root)
             os.mkdir(path.join(root, "src"))
-            local forge_lua = path.join(os.projectdir(), "includes", "forge.lua")
+            local recudo_lua = path.join(os.projectdir(), "includes", "recudo.lua")
             io.writefile(path.join(root, "src", "main.lua"), [[
-local hello = require("forge.hello")
-local native = require("forge.native")
+local hello = require("recudo.hello")
+local native = require("recudo.native")
 if hello.answer() ~= 42 then error("hello") end
 if native ~= 7 then error("native=" .. tostring(native)) end
-print("forge-pkg-ok")
+print("recudo-pkg-ok")
 ]])
             io.writefile(path.join(root, "xmake.lua"), string.format([[
-set_project("forge_lua_pkg_app")
+set_project("recudo_lua_pkg_app")
 includes(%q)
 add_requires("lua", {system = false})
-add_requires("forge-hello", "forge-native")
+add_requires("recudo-hello", "recudo-native")
 
 target("app")
     set_kind("phony")
-    add_rules("forge.lua.app")
-    set_values("forge.lua.entry", "src/main.lua")
+    add_rules("recudo.lua.app")
+    set_values("recudo.lua.entry", "src/main.lua")
     add_files("src/main.lua")
-    add_packages("lua", "forge-hello", "forge-native")
+    add_packages("lua", "recudo-hello", "recudo-native")
 
 target("bundled")
     set_default(false)
-    add_rules("forge.lua.bundle")
-    set_values("forge.lua.entry", "src/main.lua")
+    add_rules("recudo.lua.bundle")
+    set_values("recudo.lua.entry", "src/main.lua")
     add_files("src/main.lua")
-    add_packages("lua", "forge-hello", "forge-native")
-]], forge_lua))
+    add_packages("lua", "recudo-hello", "recudo-native")
+]], recudo_lua))
 
             local xmake_opt = {curdir = root}
             os.execv("xmake", {"f", "-c", "-y", "-m", "release", "--kind=shared"}, xmake_opt)
             os.execv("xmake", {"build", "app"}, xmake_opt)
             local app_out = os.iorunv("xmake", {"run", "app"}, xmake_opt)
-            T.assert_true(app_out:find("forge-pkg-ok", 1, true) ~= nil, app_out)
+            T.assert_true(app_out:find("recudo-pkg-ok", 1, true) ~= nil, app_out)
             os.tryrm(root)
         end
     })
@@ -192,12 +192,12 @@ target("bundled")
     table.insert(tests, {
         name = "pure Lua app loads a C recipe inside the private interpreter",
         func = function ()
-            local root = path.join(os.tmpdir(), "forge_lua_sandbox_app")
+            local root = path.join(os.tmpdir(), "recudo_lua_sandbox_app")
             os.tryrm(root)
             os.mkdir(path.join(root, "src"))
-            local forge_lua = path.join(os.projectdir(), "includes", "forge.lua")
+            local recudo_lua = path.join(os.projectdir(), "includes", "recudo.lua")
             io.writefile(path.join(root, "src", "main.lua"), [[
-local native = require("forge.native")
+local native = require("recudo.native")
 if native ~= 7 then error("native=" .. tostring(native)) end
 if package.path:find("/usr/", 1, true) or package.cpath:find("/usr/", 1, true) then
     error("sandbox leaked\n" .. package.path .. "\n" .. package.cpath)
@@ -205,26 +205,26 @@ end
 if not package.cpath:find(".runtime", 1, true) then
     error("module was not loaded from the staged runtime: " .. package.cpath)
 end
-print("forge-sandbox-ok")
+print("recudo-sandbox-ok")
 ]])
             io.writefile(path.join(root, "xmake.lua"), string.format([[
-set_project("forge_lua_sandbox_app")
+set_project("recudo_lua_sandbox_app")
 includes(%q)
-add_requires("forge-native")
+add_requires("recudo-native")
 
 target("app")
     set_kind("phony")
-    add_rules("forge.lua.app")
-    set_values("forge.lua.entry", "src/main.lua")
+    add_rules("recudo.lua.app")
+    set_values("recudo.lua.entry", "src/main.lua")
     add_files("src/main.lua")
-    add_packages("forge-native")
-]], forge_lua))
+    add_packages("recudo-native")
+]], recudo_lua))
 
             local xmake_opt = {curdir = root}
             os.execv("xmake", {"f", "-c", "-y", "-m", "release", "--kind=shared"}, xmake_opt)
             os.execv("xmake", {"build", "app"}, xmake_opt)
             local app_out = os.iorunv("xmake", {"run", "app"}, xmake_opt)
-            T.assert_true(app_out:find("forge-sandbox-ok", 1, true) ~= nil, app_out)
+            T.assert_true(app_out:find("recudo-sandbox-ok", 1, true) ~= nil, app_out)
             local launcher = io.readfile(path.join(root, "build/bin/app"))
             T.assert_true(launcher:find("LD_LIBRARY_PATH", 1, true) == nil, "launcher must not point at the package cache")
             T.assert_true(launcher:find("app.runtime", 1, true) ~= nil, launcher)
@@ -233,7 +233,7 @@ target("app")
             T.assert_true(wrapper:find("$SELF/../lib", 1, true) ~= nil, wrapper)
             local liblua_name = (os.host() == "macosx") and "liblua.dylib" or (os.host() == "windows" and "lua.dll" or "liblua.so")
             T.assert_true(os.isfile(path.join(root, "build/bin/app.runtime/lib", liblua_name)) or os.isfile(path.join(root, "build/bin/app.runtime/lib/liblua.so")))
-            local runtime_note = io.readfile(os.files(path.join(root, "build/.packages/f/forge-native/**/lua-runtime.lua"))[1])
+            local runtime_note = io.readfile(os.files(path.join(root, "build/.packages/r/recudo-native/**/lua-runtime.lua"))[1])
             T.assert_true(runtime_note:find("installdir", 1, true) ~= nil, "runtime descriptor must record the lua installdir")
             T.assert_true(runtime_note:find("buildhash", 1, true) == nil, "runtime descriptor must not rebuild a cache path")
             os.tryrm(root)
@@ -243,33 +243,33 @@ target("app")
     table.insert(tests, {
         name = "static mode links the C recipe into the bundle",
         func = function ()
-            local root = path.join(os.tmpdir(), "forge_lua_static_app")
+            local root = path.join(os.tmpdir(), "recudo_lua_static_app")
             os.tryrm(root)
             os.mkdir(path.join(root, "src"))
-            local forge_lua = path.join(os.projectdir(), "includes", "forge.lua")
+            local recudo_lua = path.join(os.projectdir(), "includes", "recudo.lua")
             io.writefile(path.join(root, "src", "main.lua"), [[
-local native = require("forge.native")
+local native = require("recudo.native")
 if native ~= 7 then error("native=" .. tostring(native)) end
-print("forge-static-ok")
+print("recudo-static-ok")
 ]])
             io.writefile(path.join(root, "xmake.lua"), string.format([[
-set_project("forge_lua_static_app")
+set_project("recudo_lua_static_app")
 includes(%q)
 add_requires("lua", {system = false})
-add_requires("forge-native")
+add_requires("recudo-native")
 
 target("bundled")
-    add_rules("forge.lua.bundle")
-    set_values("forge.lua.entry", "src/main.lua")
+    add_rules("recudo.lua.bundle")
+    set_values("recudo.lua.entry", "src/main.lua")
     add_files("src/main.lua")
-    add_packages("lua", "forge-native")
-]], forge_lua))
+    add_packages("lua", "recudo-native")
+]], recudo_lua))
 
             local xmake_opt = {curdir = root}
             os.execv("xmake", {"f", "-c", "-y", "-m", "release", "--kind=static"}, xmake_opt)
             os.execv("xmake", {"build", "bundled"}, xmake_opt)
             local bundle_out = os.iorunv("xmake", {"run", "bundled"}, xmake_opt)
-            T.assert_true(bundle_out:find("forge-static-ok", 1, true) ~= nil, bundle_out)
+            T.assert_true(bundle_out:find("recudo-static-ok", 1, true) ~= nil, bundle_out)
             T.assert_true(not os.isdir(path.join(root, "build/bin/bundled.runtime")))
             os.tryrm(root)
         end
@@ -293,7 +293,7 @@ target("bundled")
             lua_module.setup(fake_pkg, {runtime = {"lua", "luajit"}, version = ">=5.1 <=5.3"})
             T.assert_equal(#added_deps, 2)
             T.assert_equal(added_deps[1].dep, "lua >=5.1 <=5.3")
-            T.assert_equal(added_deps[2].dep, "forge master")
+            T.assert_equal(added_deps[2].dep, "recudo master")
 
             -- Test string shorthand syntax setup(pkg, ">=5.1 <=5.3")
             added_deps = {}
@@ -328,7 +328,7 @@ target("bundled")
             lua_module.setup(fake_jit_pkg, {runtime = {"lua", "luajit"}})
             T.assert_equal(#added_deps, 2)
             T.assert_equal(added_deps[1].dep, "luajit")
-            T.assert_equal(added_deps[2].dep, "forge master")
+            T.assert_equal(added_deps[2].dep, "recudo master")
 
             -- Test unsupported runtime rejection
             local fake_unsupported_pkg = {

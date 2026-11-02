@@ -1,4 +1,4 @@
--- Projectum Lunare Forge - YueScript Language Rule
+-- Projectum Lunare Recudo - YueScript Language Rule
 -- Copyright (C) 2026 Gustavo Veiga <gustavo.veiga@outlook.com.br>
 -- Mozilla Public License Version 2.0
 
@@ -61,9 +61,9 @@ local function setup_yuescript_rule(rule_name)
             local lua_rel = (relpath:gsub("%.yue$", ".lua"))
 
             -- Determine output destination
-            local outdir = target:values("forge.lang.yuescript.outdir")
+            local outdir = target:values("recudo.lang.yuescript.outdir")
             if not outdir then
-                if target:data("forge.lua.is_cmodule") or target:data("forge.lua.is_pure") or target:data("forge.lua.is_app") or target:data("forge.engine.love") or target:data("forge.engine.amulet") or target:has_rules("forge.engine.love") or target:has_rules("forge.engine.amulet") then
+                if target:data("recudo.lua.is_cmodule") or target:data("recudo.lua.is_pure") or target:data("recudo.lua.is_app") or target:data("recudo.engine.love") or target:data("recudo.engine.amulet") or target:has_rules("recudo.engine.love") or target:has_rules("recudo.engine.amulet") then
                     outdir = path.join(os.projectdir(), "build/lua")
                 else
                     outdir = path.join(target:autogendir(), "rules", "yuescript")
@@ -74,12 +74,12 @@ local function setup_yuescript_rule(rule_name)
 
             -- Prepare yue compile command arguments
             local argv = {}
-            local yue_target = target:values("forge.lang.yuescript.target")
+            local yue_target = target:values("recudo.lang.yuescript.target")
             if yue_target then
                 table.insert(argv, "--target")
                 table.insert(argv, tostring(yue_target))
             end
-            if target:values("forge.lang.yuescript.minify") then
+            if target:values("recudo.lang.yuescript.minify") then
                 table.insert(argv, "-m")
             end
             table.insert(argv, "-o")
@@ -99,7 +99,7 @@ local function setup_yuescript_rule(rule_name)
             local installdir = target:installdir()
             if not installdir then return end
 
-            local outdir = target:values("forge.lang.yuescript.outdir") or path.join(os.projectdir(), "build/lua")
+            local outdir = target:values("recudo.lang.yuescript.outdir") or path.join(os.projectdir(), "build/lua")
             for _, src in ipairs(table.wrap(target:sourcefiles())) do
                 if src:endswith(".yue") then
                     local relpath = env.get_relative_path(target, src)
@@ -121,4 +121,4 @@ local function setup_yuescript_rule(rule_name)
         end)
 end
 
-setup_yuescript_rule("forge.lang.yuescript")
+setup_yuescript_rule("recudo.lang.yuescript")

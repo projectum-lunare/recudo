@@ -1,10 +1,10 @@
--- Tests for Forge templates, repl, and project creation
+-- Tests for Recudo templates, repl, and project creation
 
 function main(T)
     local tests = {}
 
     table.insert(tests, {
-        name = "forge project templates exist and contain valid manifest and config",
+        name = "recudo project templates exist and contain valid manifest and config",
         func = function ()
             local root = os.projectdir()
             local tmpl_root = path.join(root, "templates", "lua")
@@ -20,14 +20,14 @@ function main(T)
     })
 
     table.insert(tests, {
-        name = "forge create generates and instantiates new project from template",
+        name = "recudo create generates and instantiates new project from template",
         func = function ()
-            local tmp_proj = path.join(os.tmpdir(), "forge_test_gen_app")
+            local tmp_proj = path.join(os.tmpdir(), "recudo_test_gen_app")
             os.rm(tmp_proj)
 
             local root = os.projectdir()
-            local forge_main = import("plugins.forge.main", {rootdir = root, anonymous = true})
-            T.assert_not_nil(forge_main)
+            local recudo_main = import("plugins.recudo.main", {rootdir = root, anonymous = true})
+            T.assert_not_nil(recudo_main)
 
             local tmpl_dir = path.join(root, "templates", "lua", "app")
             os.mkdir(tmp_proj)
@@ -37,30 +37,30 @@ function main(T)
                     local dstfile = path.join(tmp_proj, relpath)
                     os.mkdir(path.directory(dstfile))
                     local content = io.readfile(srcfile)
-                    content = content:gsub("%${TARGET_NAME}", "forge_test_gen_app")
+                    content = content:gsub("%${TARGET_NAME}", "recudo_test_gen_app")
                     io.writefile(dstfile, content)
                 end
             end
 
             local xmake_content = io.readfile(path.join(tmp_proj, "xmake.lua"))
-            T.assert_true(xmake_content:find('target%("forge_test_gen_app"%)') ~= nil)
-            T.assert_true(xmake_content:find('add_rules%("forge.lua.app"%)') ~= nil)
+            T.assert_true(xmake_content:find('target%("recudo_test_gen_app"%)') ~= nil)
+            T.assert_true(xmake_content:find('add_rules%("recudo.lua.app"%)') ~= nil)
 
             local main_content = io.readfile(path.join(tmp_proj, "src", "main.lua"))
-            T.assert_true(main_content:find("forge_test_gen_app") ~= nil)
+            T.assert_true(main_content:find("recudo_test_gen_app") ~= nil)
 
             os.rm(tmp_proj)
         end
     })
 
     table.insert(tests, {
-        name = "forge create generates and instantiates love-compat and amulet-compat templates",
+        name = "recudo create generates and instantiates love-compat and amulet-compat templates",
         func = function ()
             local root = os.projectdir()
             local tmpl_root = path.join(root, "templates", "lua")
 
             for _, tmpl_name in ipairs({"love-compat", "amulet-compat"}) do
-                local tmp_proj = path.join(os.tmpdir(), "forge_test_" .. tmpl_name:gsub("-", "_"))
+                local tmp_proj = path.join(os.tmpdir(), "recudo_test_" .. tmpl_name:gsub("-", "_"))
                 os.rm(tmp_proj)
                 os.mkdir(tmp_proj)
 

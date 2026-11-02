@@ -10,19 +10,19 @@ import("lua.tree", {rootdir = modules_root, inherit = true})
 import("lua.runtime", {rootdir = modules_root, inherit = true})
 
 -- Captured when this module is loaded. os.scriptdir() later follows the caller.
-local FORGE_ROOT = path.directory(path.directory(os.scriptdir()))
+local RECUDO_ROOT = path.directory(path.directory(os.scriptdir()))
 local catalog = import("catalog", {rootdir = path.directory(os.scriptdir()), anonymous = true})
 
 function supports_dynamic(plat)
     return not catalog.is_static(plat)
 end
 
-function forge_root()
-    return FORGE_ROOT
+function recudo_root()
+    return RECUDO_ROOT
 end
 
--- Install an xmake project that uses forge.lua.module. A project that already
--- includes Forge is left alone. One that only declares targets receives Forge
+-- Install an xmake project that uses recudo.lua.module. A project that already
+-- includes Recudo is left alone. One that only declares targets receives Recudo
 -- and the lua dependency around it.
 function install_project(package, configs)
     local xmake_tools = import("package.tools.xmake")
@@ -44,9 +44,9 @@ function install_project(package, configs)
     end
 
     local envs = xmake_tools.buildenvs(package)
-    if not project:find("/forge.lua", 1, true) and not project:find("\\forge.lua", 1, true) then
+    if not project:find("/recudo.lua", 1, true) and not project:find("\\recudo.lua", 1, true) then
         local rc = os.tmpfile() .. ".lua"
-        local forge_lua = path.join(FORGE_ROOT, "includes", "forge.lua")
+        local recudo_lua = path.join(RECUDO_ROOT, "includes", "recudo.lua")
         local req_runtime = "lua"
         local rt_dep = package.dep and (package:dep("luajit") or package:dep("openresty-luajit") or package:dep("lua"))
         if rt_dep then
@@ -73,7 +73,7 @@ function install_project(package, configs)
         local rc_lines = {
             'add_rules("mode.release", "mode.debug")',
             req_line,
-            "includes(" .. string.format("%q", forge_lua) .. ")",
+            "includes(" .. string.format("%q", recudo_lua) .. ")",
             ""
         }
         io.writefile(rc, table.concat(rc_lines, "\n"))
@@ -98,7 +98,7 @@ function lua_test(package, expr)
     local function add_package_paths(pkg)
         local dir = pkg.installdir and pkg:installdir()
         if dir and os.isdir(dir) then
-            local note = path.join(dir, "share/forge/lua-search.lua")
+            local note = path.join(dir, "share/recudo/lua-search.lua")
             local data = os.isfile(note) and io.load(note) or nil
             local envs = type(data) == "table" and data.envs or search
             for _, p in ipairs(table.wrap(envs.LUA_PATH)) do
@@ -202,7 +202,7 @@ function lua_test(package, expr)
 end
 
 -- Build the recipe directory as an xmake project. The recipe file is that project.
--- The rc file includes Forge instead of pasting it: a pasted script would see
+-- The rc file includes Recudo instead of pasting it: a pasted script would see
 -- the recipe directory as scriptdir and miss the addon rules.
 function build(package)
     local work = path.absolute(package:sourcedir())
@@ -210,13 +210,13 @@ function build(package)
     local envs = xmake_tools.buildenvs(package)
     local rcdir = package:cachedir()
     os.mkdir(rcdir)
-    local forge_lua = path.join(FORGE_ROOT, "includes", "forge.lua")
-    local rcfile = path.join(rcdir, "forge-project.lua")
-    io.writefile(rcfile, "includes(" .. string.format("%q", forge_lua) .. ")\n")
+    local recudo_lua = path.join(RECUDO_ROOT, "includes", "recudo.lua")
+    local rcfile = path.join(rcdir, "recudo-project.lua")
+    io.writefile(rcfile, "includes(" .. string.format("%q", recudo_lua) .. ")\n")
     envs.XMAKE_RCFILES = envs.XMAKE_RCFILES or {}
     table.insert(envs.XMAKE_RCFILES, rcfile)
-    envs.FORGE_LUA_PROJECT = "1"
-    envs.FORGE_LUA_ROOT = FORGE_ROOT
+    envs.RECUDO_LUA_PROJECT = "1"
+    envs.RECUDO_LUA_ROOT = RECUDO_ROOT
     envs.XMAKE_CONFIGDIR = work
     local kind = package:config("shared") and "shared" or "static"
     local xmake = os.programfile()
@@ -438,8 +438,8 @@ local function child_envs(package)
     local xmake_tools = import("package.tools.xmake")
     local envs = xmake_tools.buildenvs(package)
     local rc = os.tmpfile() .. ".lua"
-    local forge_lua = path.join(FORGE_ROOT, "includes", "forge.lua")
-    io.writefile(rc, "includes(" .. string.format("%q", forge_lua) .. ")\n")
+    local recudo_lua = path.join(RECUDO_ROOT, "includes", "recudo.lua")
+    io.writefile(rc, "includes(" .. string.format("%q", recudo_lua) .. ")\n")
     envs.XMAKE_RCFILES = envs.XMAKE_RCFILES or {}
     table.insert(envs.XMAKE_RCFILES, rc)
     return envs
@@ -496,9 +496,9 @@ end
 
 local function vintage_rule(plat)
     if plat == "dos" or plat == "os2" then
-        return "forge.watcom"
+        return "recudo.watcom"
     elseif plat == "wince" then
-        return "forge.evc3"
+        return "recudo.evc3"
     end
     return nil
 end
@@ -524,7 +524,7 @@ end
 
 local function compile_cmodules(package, specs, opt)
     local curdir = (opt and opt.srcdir) or os.curdir()
-    local work = path.join(package:builddir(), "forge-lua")
+    local work = path.join(package:builddir(), "recudo-lua")
     os.tryrm(work)
     os.mkdir(work)
 
@@ -553,7 +553,7 @@ local function compile_cmodules(package, specs, opt)
     local syslinks = table.wrap(package:get("syslinks"))
 
     local lines = {
-        "-- Generated by Projectum Lunare Forge",
+        "-- Generated by Projectum Lunare Recudo",
         "add_rules(\"mode.debug\", \"mode.release\")",
         ""
     }
@@ -609,8 +609,8 @@ end
 -- Install modules described by an xmake table.
 --
 -- modules = {
---     ["forge.hello"] = "hello.lua",
---     ["forge.native"] = "native.c",
+--     ["recudo.hello"] = "hello.lua",
+--     ["recudo.native"] = "native.c",
 --     ["socket.core"] = {
 --         sources = {"src/core.c"},
 --         defines = {"SOCKET_EXPORTS"},
@@ -626,8 +626,8 @@ function install(package, opt)
 
     local ver = opt.luaver or luaver_of(package)
     local installdir = package:installdir()
-    local stage_base = package.builddir and package:builddir() or path.join(installdir, ".forge-src")
-    local stage = path.join(stage_base, "forge-lua-src")
+    local stage_base = package.builddir and package:builddir() or path.join(installdir, ".recudo-src")
+    local stage = path.join(stage_base, "recudo-lua-src")
     os.tryrm(stage)
     os.mkdir(stage)
     for _, spec in ipairs(specs) do

@@ -40,7 +40,7 @@ jobs:
           brew install lua
           sudo ln -sf "$(brew --prefix)/bin/lua" /usr/local/bin/lua 2>/dev/null || true
 
-      - name: Install Forge Addon
+      - name: Install Recudo Addon
         run: xmake addon --install .
 
       - name: Run Test Suite (xmake test)
@@ -49,11 +49,11 @@ jobs:
       - name: Run Direct Test Runner (xmake l tests/run.lua)
         run: xmake l tests/run.lua
 
-      - name: Verify Forge CLI Plugin (list, env & json export)
+      - name: Verify Recudo CLI Plugin (list, env & json export)
         run: |
-          xmake forge list
-          xmake forge env
-          JSON_OUT=$(xmake forge env --json)
+          xmake recudo list
+          xmake recudo env
+          JSON_OUT=$(xmake recudo env --json)
           echo "$JSON_OUT"
           echo "$JSON_OUT" | grep -q "LUA_PATH"
           echo "$JSON_OUT" | grep -q "LUA_CPATH"

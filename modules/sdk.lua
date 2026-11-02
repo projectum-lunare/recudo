@@ -1,4 +1,4 @@
--- Projectum Lunare Forge
+-- Projectum Lunare Recudo
 -- Cross-Platform SDK Detection Module Alias
 
 local detect = import("detect.sdk", {rootdir = os.scriptdir()})

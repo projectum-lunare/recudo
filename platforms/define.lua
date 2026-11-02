@@ -1,7 +1,7 @@
 -- Apply one catalog entry. xmake loads platforms/<id>/xmake.lua, so each
 -- directory calls define_platform. The catalog itself cannot import() here.
 
-includes(path.join(_FORGE_ROOT, "modules/catalog.lua"))
+includes(path.join(_RECUDO_ROOT, "modules/catalog.lua"))
 
 local function fill(entry)
     set_os(entry.os)

@@ -1,6 +1,6 @@
--- Projectum Lunare Forge
+-- Projectum Lunare Recudo
 -- Toolchain: Microsoft Embedded Visual C++ 3.0 (Windows CE) via wibo
--- Uses native Xmake rule: forge.evc3
+-- Uses native Xmake rule: recudo.evc3
 
 includes(path.join(os.scriptdir(), "../modules/catalog.lua"))
 local wince = get("wince")

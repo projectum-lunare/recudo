@@ -1,10 +1,10 @@
 add_rules("mode.debug", "mode.release")
-add_requires("forge master", {kind = "addon"})
+add_requires("recudo master", {kind = "addon"})
 add_requires("lua-compat-5.3")
 
-includes("@addon/forge/forge.lua")
+includes("@addon/recudo/recudo.lua")
 
 target("${TARGET_NAME}")
-    add_rules("forge.engine.amulet")
+    add_rules("recudo.engine.amulet")
     add_packages("lua-compat-5.3")
     add_files("src/**.lua")

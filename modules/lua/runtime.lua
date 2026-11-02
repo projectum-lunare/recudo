@@ -1,4 +1,4 @@
--- Projectum Lunare Forge - Lua Runtime & Package Orchestration Helper
+-- Projectum Lunare Recudo - Lua Runtime & Package Orchestration Helper
 -- Copyright (C) 2026 Gustavo Veiga <gustavo.veiga@outlook.com.br>
 -- Mozilla Public License Version 2.0
 
@@ -93,5 +93,5 @@ function setup(package, opt)
     else
         raise("Package '%s': unsupported Lua runtime '%s'", package:name(), tostring(rt))
     end
-    package:add("deps", "forge master", {kind = "addon"})
+    package:add("deps", "recudo master", {kind = "addon"})
 end

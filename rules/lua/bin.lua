@@ -1,13 +1,13 @@
--- Projectum Lunare Forge - Lua Build Rules & Subsystem
+-- Projectum Lunare Recudo - Lua Build Rules & Subsystem
 -- Copyright (C) 2026 Gustavo Veiga <gustavo.veiga@outlook.com.br>
 -- Mozilla Public License Version 2.0
 
 -- ==============================================================================
--- 2. Rule: forge.lua.bin
+-- 2. Rule: recudo.lua.bin
 -- Install a Lua program into bin/. The script keeps its shebang. Unix marks it
 -- executable. Windows also gets a .cmd launcher that calls lua.
 -- ==============================================================================
-rule("forge.lua.bin")
+rule("recudo.lua.bin")
     set_extensions(".lua")
 
     on_load(function (target)
@@ -15,7 +15,7 @@ rule("forge.lua.bin")
         -- A program such as src/bin/luacov has no extension, so the file rule
         -- would otherwise reject it as an unknown source.
         for _, sourcefile in ipairs(table.wrap(target:get("files"))) do
-            target:fileconfig_set(sourcefile, {rules = "forge.lua.bin"})
+            target:fileconfig_set(sourcefile, {rules = "recudo.lua.bin"})
         end
     end)
 

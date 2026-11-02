@@ -24,7 +24,7 @@ local render_recipe = template.compile([[package(<%= q(name) %>)
         if opt and opt.system then
             return false
         end
-        local manifest = path.join(package:installdir({readonly = true}), "share/forge/lua-modules.lua")
+        local manifest = path.join(package:installdir({readonly = true}), "share/recudo/lua-modules.lua")
         if not os.isfile(manifest) then
             return false
         end

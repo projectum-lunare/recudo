@@ -1,4 +1,4 @@
--- Projectum Lunare Forge
+-- Projectum Lunare Recudo
 -- Rule: Open Watcom v2 C Compiler, Linker & Archiver (DOS 32-bit & OS/2 Warp)
 -- Native Xmake batchcmds execution (no external shell/python wrappers)
 
@@ -241,4 +241,4 @@ local function setup_watcom_rule(rule_name)
         end)
 end
 
-setup_watcom_rule("forge.toolchain.watcom")
+setup_watcom_rule("recudo.toolchain.watcom")

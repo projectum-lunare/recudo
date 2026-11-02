@@ -1,12 +1,12 @@
--- Projectum Lunare Forge - Unified Build, Toolchain & Cross-Compilation Addon
+-- Projectum Lunare Recudo - Unified Build, Toolchain & Cross-Compilation Addon
 -- Copyright (C) 2026 Gustavo Veiga <gustavo.veiga@outlook.com.br>
 -- Mozilla Public License Version 2.0
 
-set_project("forge")
+set_project("recudo")
 set_version("0.1.3")
 set_xmakever("2.8.5")
 
-includes("includes/forge.lua")
+includes("includes/recudo.lua")
 
 target("test")
     set_kind("phony")

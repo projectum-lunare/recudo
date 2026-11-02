@@ -53,7 +53,7 @@ function module_lua_relpath(modname, source)
     return table.concat(head, "/") .. "/" .. leaf .. ".lua"
 end
 
--- forge.native + so -> forge/native.so
+-- recudo.native + so -> recudo/native.so
 function module_c_relpath(modname, ext)
     local parts = module_parts(modname)
     local leaf = parts[#parts]

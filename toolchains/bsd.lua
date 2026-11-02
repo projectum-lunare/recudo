@@ -1,4 +1,4 @@
--- Projectum Lunare Forge
+-- Projectum Lunare Recudo
 -- Toolchains: FreeBSD, OpenBSD, NetBSD and DragonFly BSD
 -- One loader. The spec table keeps the per-OS differences.
 

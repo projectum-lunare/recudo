@@ -5,7 +5,7 @@
 local modules_root = path.directory(os.scriptdir())
 import("lua.names", {rootdir = modules_root, inherit = true})
 
-local MANIFEST_REL = "share/forge/lua-modules.lua"
+local MANIFEST_REL = "share/recudo/lua-modules.lua"
 
 function manifest_file(installdir)
     return path.join(installdir, MANIFEST_REL)
@@ -26,9 +26,9 @@ function load_manifest(installdir)
     return nil
 end
 
-local SEARCH_NOTE = "share/forge/lua-search.lua"
+local SEARCH_NOTE = "share/recudo/lua-search.lua"
 
--- Relative LUA_PATH / LUA_CPATH for a tree installed by forge.lua.module.
+-- Relative LUA_PATH / LUA_CPATH for a tree installed by recudo.lua.module.
 function module_search_envs(ext)
     ext = ext or ".so"
     if not ext:startswith(".") then
@@ -61,12 +61,12 @@ function module_search_envs(ext)
 end
 
 function write_module_search(installdir, ext)
-    local dir = path.join(installdir, "share/forge")
+    local dir = path.join(installdir, "share/recudo")
     os.mkdir(dir)
     io.save(path.join(installdir, SEARCH_NOTE), {envs = module_search_envs(ext)})
 end
 
--- Publish the paths written by forge.lua.module onto the xmake package.
+-- Publish the paths written by recudo.lua.module onto the xmake package.
 function apply_search_envs(package)
     local ext = ".so"
     if package.is_plat and package:is_plat("windows", "mingw") then
@@ -86,7 +86,7 @@ function apply_search_envs(package)
     end
 end
 
-local RUNTIME_REL = "share/forge/lua-runtime.lua"
+local RUNTIME_REL = "share/recudo/lua-runtime.lua"
 
 function load_runtime(installdir)
     if not installdir then
@@ -275,7 +275,7 @@ function library_is_shared(root)
 end
 
 function replace_manifest(installdir, ver, records)
-    local mdir = path.join(installdir, "share/forge")
+    local mdir = path.join(installdir, "share/recudo")
     os.mkdir(mdir)
     local manifest = manifest_file(installdir)
     io.save(manifest, {luaver = ver, modules = records})
@@ -286,7 +286,7 @@ end
 
 -- One target's after_install merges into a manifest other targets may already have written.
 function upsert_record(installdir, record, ver)
-    local mdir = path.join(installdir, "share/forge")
+    local mdir = path.join(installdir, "share/recudo")
     os.mkdir(mdir)
     local file = manifest_file(installdir)
     local data = os.isfile(file) and io.load(file) or {luaver = ver, modules = {}}
@@ -309,7 +309,7 @@ function upsert_record(installdir, record, ver)
 end
 
 function save_runtime(installdir, lua_installdir, shared)
-    local mdir = path.join(installdir, "share/forge")
+    local mdir = path.join(installdir, "share/recudo")
     os.mkdir(mdir)
     local runtime_file = path.join(mdir, "lua-runtime.lua")
     io.save(runtime_file, {installdir = lua_installdir, shared = shared})

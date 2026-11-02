@@ -1,4 +1,4 @@
--- Projectum Lunare Forge
+-- Projectum Lunare Recudo
 -- Toolchains: AmigaOS and Atari ST m68k GCC
 -- One loader. modules/catalog.lua keeps the per-target prefix, SDK and flags.
 

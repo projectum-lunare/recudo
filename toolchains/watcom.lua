@@ -1,6 +1,6 @@
--- Projectum Lunare Forge
+-- Projectum Lunare Recudo
 -- Toolchain: Open Watcom v2 (DOS 32-bit Protected Mode & OS/2 Warp)
--- Uses native Xmake rule: forge.watcom
+-- Uses native Xmake rule: recudo.watcom
 -- DOS and OS/2 share this SDK. The catalog records it on both platforms.
 
 includes(path.join(os.scriptdir(), "../modules/catalog.lua"))

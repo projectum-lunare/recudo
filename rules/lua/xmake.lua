@@ -1,4 +1,4 @@
--- Projectum Lunare Forge - Lua Build Rules & Subsystem
+-- Projectum Lunare Recudo - Lua Build Rules & Subsystem
 -- Copyright (C) 2026 Gustavo Veiga <gustavo.veiga@outlook.com.br>
 -- Mozilla Public License Version 2.0
 

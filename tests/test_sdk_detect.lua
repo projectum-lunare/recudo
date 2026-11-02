@@ -27,7 +27,7 @@ function main(T)
     table.insert(tests, {
         name = "watcom get_env generates complete environment variables",
         func = function ()
-            local fake_sdk = path.join(os.tmpdir(), "forge_mock_watcom")
+            local fake_sdk = path.join(os.tmpdir(), "recudo_mock_watcom")
             local fake_bin = path.join(fake_sdk, "binl64")
             local fake_h = path.join(fake_sdk, "h")
             local fake_dos_h = path.join(fake_sdk, "h/dos")
@@ -51,11 +51,11 @@ function main(T)
     table.insert(tests, {
         name = "sdk.exists verifies check_file presence",
         func = function ()
-            local tmp = path.join(os.tmpdir(), "forge_sdk_check_test")
+            local tmp = path.join(os.tmpdir(), "recudo_sdk_check_test")
             os.mkdir(tmp)
 
             -- Empty dir without check_file should be false when check_file is required
-            local exists_empty = sdk.exists("forge_sdk_test", nil, {
+            local exists_empty = sdk.exists("recudo_sdk_test", nil, {
                 fallbacks = tmp,
                 check_file = "bin/compiler"
             })
@@ -66,7 +66,7 @@ function main(T)
             os.mkdir(bin_dir)
             io.writefile(path.join(bin_dir, "compiler"), "mock compiler")
 
-            local exists_with_file = sdk.exists("forge_sdk_test", nil, {
+            local exists_with_file = sdk.exists("recudo_sdk_test", nil, {
                 fallbacks = tmp,
                 check_file = "bin/compiler"
             })
@@ -77,22 +77,22 @@ function main(T)
     })
 
     table.insert(tests, {
-        name = "forge plugin is_sdk_available checks host and architecture compatibility",
+        name = "recudo plugin is_sdk_available checks host and architecture compatibility",
         func = function ()
-            local forge_main = import("plugins.forge.main", {rootdir = os.projectdir()})
+            local recudo_main = import("plugins.recudo.main", {rootdir = os.projectdir()})
 
             -- Mismatched arch on host should never be host-compatible
             local host_plat = os.host()
-            T.assert_false(forge_main.is_host_compatible(host_plat, "riscv64"),
+            T.assert_false(recudo_main.is_host_compatible(host_plat, "riscv64"),
                 "Host platform should not be compatible with riscv64 unless host is riscv64")
 
             -- Matching arch should be compatible
-            T.assert_true(forge_main.is_host_compatible(host_plat, os.arch()),
+            T.assert_true(recudo_main.is_host_compatible(host_plat, os.arch()),
                 "Host platform should be compatible with its own native arch")
 
             -- POSIX target with riscv64 should not be available without cross-compiler
             local t_posix = {id = "posix", plat = host_plat, arch = os.arch()}
-            T.assert_false(forge_main.is_sdk_available(t_posix, "riscv64"),
+            T.assert_false(recudo_main.is_sdk_available(t_posix, "riscv64"),
                 "POSIX target with riscv64 should not report available on non-riscv64 host")
         end
     })
@@ -100,8 +100,8 @@ function main(T)
     table.insert(tests, {
         name = "is_sdk_available rejects empty directories without required binaries",
         func = function ()
-            local forge_main = import("plugins.forge.main", {rootdir = os.projectdir()})
-            local tmp_empty = path.join(os.tmpdir(), "forge_empty_sdk_test")
+            local recudo_main = import("plugins.recudo.main", {rootdir = os.projectdir()})
+            local tmp_empty = path.join(os.tmpdir(), "recudo_empty_sdk_test")
             os.mkdir(tmp_empty)
 
             -- Mock targets pointing to the empty directory via custom env variable
@@ -110,14 +110,14 @@ function main(T)
                 plat = "dos",
                 arch = "i386",
                 sdk_name = "watcom",
-                sdk_env = "FORGE_MOCK_EMPTY_WATCOM"
+                sdk_env = "RECUDO_MOCK_EMPTY_WATCOM"
             }
             local t_amiga = {
                 id = "amiga",
                 plat = "amiga",
                 arch = "m68k",
                 sdk_name = "amigaos-sdk",
-                sdk_env = "FORGE_MOCK_EMPTY_AMIGA",
+                sdk_env = "RECUDO_MOCK_EMPTY_AMIGA",
                 check_file = "bin/m68k-amigaos-gcc"
             }
             local t_wince = {
@@ -125,23 +125,23 @@ function main(T)
                 plat = "wince",
                 arch = "arm",
                 sdk_name = "evc3",
-                sdk_env = "FORGE_MOCK_EMPTY_EVC3"
+                sdk_env = "RECUDO_MOCK_EMPTY_EVC3"
             }
 
-            os.setenv("FORGE_MOCK_EMPTY_WATCOM", tmp_empty)
-            os.setenv("FORGE_MOCK_EMPTY_AMIGA", tmp_empty)
-            os.setenv("FORGE_MOCK_EMPTY_EVC3", tmp_empty)
+            os.setenv("RECUDO_MOCK_EMPTY_WATCOM", tmp_empty)
+            os.setenv("RECUDO_MOCK_EMPTY_AMIGA", tmp_empty)
+            os.setenv("RECUDO_MOCK_EMPTY_EVC3", tmp_empty)
 
-            T.assert_false(forge_main.is_sdk_available(t_watcom),
+            T.assert_false(recudo_main.is_sdk_available(t_watcom),
                 "Watcom target must not report available when directory has no owcc")
-            T.assert_false(forge_main.is_sdk_available(t_amiga),
+            T.assert_false(recudo_main.is_sdk_available(t_amiga),
                 "Amiga target must not report available when gcc binary is missing")
-            T.assert_false(forge_main.is_sdk_available(t_wince),
+            T.assert_false(recudo_main.is_sdk_available(t_wince),
                 "WinCE target must not report available when clarm.exe/link.exe are missing")
 
-            os.setenv("FORGE_MOCK_EMPTY_WATCOM", nil)
-            os.setenv("FORGE_MOCK_EMPTY_AMIGA", nil)
-            os.setenv("FORGE_MOCK_EMPTY_EVC3", nil)
+            os.setenv("RECUDO_MOCK_EMPTY_WATCOM", nil)
+            os.setenv("RECUDO_MOCK_EMPTY_AMIGA", nil)
+            os.setenv("RECUDO_MOCK_EMPTY_EVC3", nil)
             os.rm(tmp_empty)
         end
     })
@@ -149,28 +149,28 @@ function main(T)
     table.insert(tests, {
         name = "get_sdk_path provides clear descriptive diagnostics for missing tools",
         func = function ()
-            local forge_main = import("plugins.forge.main", {rootdir = os.projectdir()})
+            local recudo_main = import("plugins.recudo.main", {rootdir = os.projectdir()})
 
             -- Check POSIX host description
             local t_posix = {id = "posix", plat = os.host(), arch = os.arch()}
-            local posix_desc = forge_main.get_sdk_path(t_posix, os.arch())
+            local posix_desc = recudo_main.get_sdk_path(t_posix, os.arch())
             T.assert_equal(posix_desc, "Host Native Development Tools")
 
             -- Check BSD target when cross compiler is missing
             local t_freebsd = {id = "freebsd", plat = "freebsd", arch = "x86_64", sdk_env = "FREEBSD_SDK"}
-            local bsd_desc = forge_main.get_sdk_path(t_freebsd, "riscv64")
+            local bsd_desc = recudo_main.get_sdk_path(t_freebsd, "riscv64")
             T.assert_true(bsd_desc:find("missing") ~= nil, "BSD missing toolchain should be labeled as missing")
 
             -- Check Watcom target with empty directory
-            local tmp_empty = path.join(os.tmpdir(), "forge_empty_watcom_diag")
+            local tmp_empty = path.join(os.tmpdir(), "recudo_empty_watcom_diag")
             os.mkdir(tmp_empty)
-            local t_watcom = {id = "dos", plat = "dos", arch = "i386", sdk_env = "FORGE_MOCK_DIAG_WATCOM"}
-            os.setenv("FORGE_MOCK_DIAG_WATCOM", tmp_empty)
+            local t_watcom = {id = "dos", plat = "dos", arch = "i386", sdk_env = "RECUDO_MOCK_DIAG_WATCOM"}
+            os.setenv("RECUDO_MOCK_DIAG_WATCOM", tmp_empty)
 
-            local watcom_desc = forge_main.get_sdk_path(t_watcom, "i386")
+            local watcom_desc = recudo_main.get_sdk_path(t_watcom, "i386")
             T.assert_true(watcom_desc:find("owcc missing") ~= nil, "Watcom empty directory should mention owcc missing")
 
-            os.setenv("FORGE_MOCK_DIAG_WATCOM", nil)
+            os.setenv("RECUDO_MOCK_DIAG_WATCOM", nil)
             os.rm(tmp_empty)
         end
     })

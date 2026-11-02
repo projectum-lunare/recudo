@@ -1,4 +1,4 @@
--- Projectum Lunare Forge
+-- Projectum Lunare Recudo
 -- Cross-Platform SDK Detection Module
 -- Supports Unix ($HOME/.local/opt/<sdk>) and Windows (%APPDATA%/<sdk>, %LOCALAPPDATA%/<sdk>)
 

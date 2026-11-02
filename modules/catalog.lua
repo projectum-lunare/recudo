@@ -1,5 +1,5 @@
--- Projectum Lunare Forge
--- One list for platforms, default architectures, static linking and the forge CLI.
+-- Projectum Lunare Recudo
+-- One list for platforms, default architectures, static linking and the recudo CLI.
 --
 -- Project and platform scripts include this file: import() is not available
 -- while those scripts are loading. A module import sees the functions below.

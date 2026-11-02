@@ -1,4 +1,4 @@
-# Projectum Lunare Forge
+# Projectum Lunare Recudo
 
 > **Unified Build, Toolchain & Cross-Compilation Addon for Xmake**  
 > Architected for retro, embedded, and modern systems across the Projectum Lunare ecosystem.
@@ -10,23 +10,23 @@
 
 ## Overview
 
-**Forge** is the official build infrastructure and cross-compilation engine for **Projectum Lunare** (powering [`solo`](https://github.com/projectum-lunare/solo), [`dotstar`](https://github.com/projectum-lunare/dotstar), and other systems).
+**Recudo** is the official build infrastructure and cross-compilation engine for **Projectum Lunare** (powering [`solo`](https://github.com/projectum-lunare/solo), [`dotstar`](https://github.com/projectum-lunare/dotstar), and other systems).
 
-Instead of reinventing low-level DAG build graphs from scratch, Forge integrates natively into [Xmake](https://xmake.io) as a modular addon, providing:
+Instead of reinventing low-level DAG build graphs from scratch, Recudo integrates natively into [Xmake](https://xmake.io) as a modular addon, providing:
 
 - **Formal Custom Platforms:** First-class declarations for vintage systems (`amiga`, `atari`, `kolibri`, `dos`, `os2`, `wince`) and distinct modern BSD platforms (`freebsd`, `openbsd`, `netbsd`, `dragonflybsd`).
 - **Automatic Default Architectures:** Automatic mappings (`amiga|m68k`, `atari|m68k`, `kolibri|i386`, `dos|i386`, `os2|i386`, `wince|arm`, `freebsd|x86_64`, `openbsd|x86_64`, `netbsd|x86_64`, `dragonflybsd|x86_64`).
 - **Native Compiler Rules:** Direct execution of non-standard toolchains (`Open Watcom` v2 for DOS/OS2 via `owcc`/`wlib`, `Microsoft eVC 3.0` via `wibo`) using native Xmake batch commands without brittle shell/Python wrapper scripts.
 - **Cross-Platform SDK Detection:** Automatic resolution across Unix (`~/.local/opt/<sdk>`) and Windows (`%APPDATA%`, `%LOCALAPPDATA%`).
 - **First-Class Lua Subsystem (LuaRocks Alternative):** Native project management for pure Lua libraries, native C extensions (`.so`/`.dll` and static retro archives), portable executable launchers, monolithic single-binary bundlers, and zero-friction isolated environments (`LUA_PATH`/`LUA_CPATH`).
-- **Universal Multi-Runtime Engine (`@addon.forge.lua.runtime`):** Declarative orchestration of PUC-Lua, LuaJIT, and OpenResty dependencies with automated ABI buildhash isolation and semver constraints.
-- **Interactive Development & Scaffolding:** Instant REPL with project-aware environment (`xmake forge repl`) and canonical scaffolding templates (`xmake forge create`).
-- **LÖVE 2D Game Engine Integration (`forge.engine.love`):** Native rule for game development, dynamic C-extension preloading without boilerplate, fast local dev runs, and release-ready fused standalone binaries.
-- **Amulet Game Toolkit Integration (`forge.engine.amulet`):** Native rule for 2D/3D audio/visual games, dynamic C-extension preload hook into Amulet's runtime, instant development iteration, and standalone release bundle packaging (`data.pak`).
-- **Teal Typed Lua Integration (`forge.lang.teal`):** Native rule providing gradual static typing, strict type-checking, and transpilation into clean Lua.
-- **Nelua Systems Language Integration (`forge.lang.nelua`):** Native rule compiling statically-typed, meta-programmable systems code directly to ANSI/C99 (for vintage & modern toolchains) or clean Lua.
-- **Compile-to-Lua Transpilers (`forge.lang.*`):** Native `forge.lang.fennel`, `forge.lang.moonscript`, and `forge.lang.yuescript` rules providing seamless Ahead-of-Time (AOT) transpilation of `.fnl`, `.moon`, and `.yue` files into clean Lua code.
-- **Matrix Orchestration CLI:** High-level `xmake forge` tasks to audit, cross-compile, and benchmark builds across target architectures.
+- **Universal Multi-Runtime Engine (`@addon.recudo.lua.runtime`):** Declarative orchestration of PUC-Lua, LuaJIT, and OpenResty dependencies with automated ABI buildhash isolation and semver constraints.
+- **Interactive Development & Scaffolding:** Instant REPL with project-aware environment (`xmake recudo repl`) and canonical scaffolding templates (`xmake recudo create`).
+- **LÖVE 2D Game Engine Integration (`recudo.engine.love`):** Native rule for game development, dynamic C-extension preloading without boilerplate, fast local dev runs, and release-ready fused standalone binaries.
+- **Amulet Game Toolkit Integration (`recudo.engine.amulet`):** Native rule for 2D/3D audio/visual games, dynamic C-extension preload hook into Amulet's runtime, instant development iteration, and standalone release bundle packaging (`data.pak`).
+- **Teal Typed Lua Integration (`recudo.lang.teal`):** Native rule providing gradual static typing, strict type-checking, and transpilation into clean Lua.
+- **Nelua Systems Language Integration (`recudo.lang.nelua`):** Native rule compiling statically-typed, meta-programmable systems code directly to ANSI/C99 (for vintage & modern toolchains) or clean Lua.
+- **Compile-to-Lua Transpilers (`recudo.lang.*`):** Native `recudo.lang.fennel`, `recudo.lang.moonscript`, and `recudo.lang.yuescript` rules providing seamless Ahead-of-Time (AOT) transpilation of `.fnl`, `.moon`, and `.yue` files into clean Lua code.
+- **Matrix Orchestration CLI:** High-level `xmake recudo` tasks to audit, cross-compile, and benchmark builds across target architectures.
 
 ---
 
@@ -48,7 +48,7 @@ Instead of reinventing low-level DAG build graphs from scratch, Forge integrates
 
 ### First-Class BSD Platforms & Architecture Normalization
 
-Standard Xmake merges all BSD distributions into a single generic `bsd` platform. Forge separates them into first-class targets (`freebsd`, `openbsd`, `netbsd`, and `dragonflybsd`) while normalizing official upstream architecture names into canonical Xmake identifiers:
+Standard Xmake merges all BSD distributions into a single generic `bsd` platform. Recudo separates them into first-class targets (`freebsd`, `openbsd`, `netbsd`, and `dragonflybsd`) while normalizing official upstream architecture names into canonical Xmake identifiers:
 
 - **FreeBSD** ([Official Releases](https://www.freebsd.org/where/)):
   - `amd64` &rarr; `x86_64` | `i386` &rarr; `i386` | `aarch64` &rarr; `arm64` | `armv7` &rarr; `armv7`
@@ -70,22 +70,22 @@ Standard Xmake merges all BSD distributions into a single generic `bsd` platform
 
 ## Installation
 
-Install Forge directly via Xmake:
+Install Recudo directly via Xmake:
 ```bash
-xmake addon --install github:projectum-lunare/forge
+xmake addon --install github:projectum-lunare/recudo
 ```
 
 ---
 
 ## Usage in Projects (`xmake.lua`)
 
-Declare Forge as a project addon dependency:
+Declare Recudo as a project addon dependency:
 ```lua
-add_addons("forge")
-includes("@addon/forge/forge.lua")
+add_addons("recudo")
+includes("@addon/recudo/recudo.lua")
 ```
 
-### Vintage Compiler Rules (`forge.toolchain.watcom` & `forge.toolchain.evc3`)
+### Vintage Compiler Rules (`recudo.toolchain.watcom` & `recudo.toolchain.evc3`)
 
 For vintage targets with specialized proprietary toolchains, attach the native compilation rules:
 ```lua
@@ -95,20 +95,20 @@ target("my_retro_app")
 
     -- Open Watcom v2 C compiler & linker (DOS 32-bit & OS/2 Warp)
     if is_plat("dos", "os2") then
-        add_rules("forge.toolchain.watcom", {override = true})
+        add_rules("recudo.toolchain.watcom", {override = true})
     -- Microsoft Embedded Visual C++ 3.0 via wibo (Windows CE)
     elseif is_plat("wince") then
-        add_rules("forge.toolchain.evc3", {override = true})
+        add_rules("recudo.toolchain.evc3", {override = true})
         -- For console apps using standard main() instead of GUI WinMain():
-        -- set_values("forge.toolchain.evc3.entry", "mainACRTStartup")
+        -- set_values("recudo.toolchain.evc3.entry", "mainACRTStartup")
     end
 ```
 *(Standard platforms like `amiga`, `atari`, `kolibri`, `freebsd`, `openbsd`, `netbsd`, `dragonflybsd`, and `linux` use native GCC/Clang toolchains automatically with standard Xmake C/C++ build graphs).*
 
 > [!NOTE]
-> **Windows CE Entry Point:** By default, executables built with `forge.toolchain.evc3` target the CE graphical subsystem and use `/entry:WinMainCRTStartup` (which invokes `WinMain`). If you are compiling a console / CLI application with a standard `main()`, set the entry point to `mainACRTStartup`:
+> **Windows CE Entry Point:** By default, executables built with `recudo.toolchain.evc3` target the CE graphical subsystem and use `/entry:WinMainCRTStartup` (which invokes `WinMain`). If you are compiling a console / CLI application with a standard `main()`, set the entry point to `mainACRTStartup`:
 > ```lua
-> set_values("forge.toolchain.evc3.entry", "mainACRTStartup")
+> set_values("recudo.toolchain.evc3.entry", "mainACRTStartup")
 > -- or: add_ldflags("/entry:mainACRTStartup")
 > ```
 
@@ -117,13 +117,13 @@ target("my_retro_app")
 
 ## Lua Subsystem (Modern LuaRocks Alternative)
 
-Forge provides a first-class build and execution system for Lua 5.4+ projects without requiring external package managers:
+Recudo provides a first-class build and execution system for Lua 5.4+ projects without requiring external package managers:
 
-### 1. Pure Lua Module (`forge.lua.module`)
+### 1. Pure Lua Module (`recudo.lua.module`)
 Automatically stages and packages `.lua` source files into `build/lua/` with canonical paths:
 ```lua
 target("mylib")
-    add_rules("forge.lua.module")
+    add_rules("recudo.lua.module")
     add_files("src/**.lua")
 ```
 
@@ -132,22 +132,22 @@ Compiles C code into Lua-loadable shared modules (`.so` / `.dll`) on modern OSes
 ```lua
 -- Shared module (default on desktop: Linux, macOS, Windows)
 target("mylib.native")
-    add_rules("forge.lua.module")
+    add_rules("recudo.lua.module")
     add_files("src/native/*.c")
 
 -- Static module (default on vintage targets, or forced for static embedding)
 target("mylib.static")
-    set_kind("static") -- or: set_values("forge.lua.kind", "static")
-    add_rules("forge.lua.module")
+    set_kind("static") -- or: set_values("recudo.lua.kind", "static")
+    add_rules("recudo.lua.module")
     add_files("src/native/*.c")
 ```
 
-### 3. Application Launcher (`forge.lua.app`)
+### 3. Application Launcher (`recudo.lua.app`)
 Generates standalone portable shell (`sh`) / batch (`cmd`) launchers in `build/bin/<app>` and supports instant execution via `xmake run`:
 ```lua
 target("my_app")
-    add_rules("forge.lua.app")
-    set_values("forge.lua.entry", "src/main.lua")
+    add_rules("recudo.lua.app")
+    set_values("recudo.lua.entry", "src/main.lua")
     add_deps("mylib", "mylib.native")
 ```
 
@@ -157,62 +157,62 @@ xmake run my_app --help
 ./build/bin/my_app --help
 ```
 
-### 4. Monolithic Standalone Bundler (`forge.lua.bundle`)
+### 4. Monolithic Standalone Bundler (`recudo.lua.bundle`)
 Embeds Lua runtime and compiles all Lua scripts directly into ANSI C byte arrays via an ERB-style template engine, generating a single self-contained native executable with zero external dependencies:
 ```lua
 target("my_standalone_app")
-    add_rules("forge.lua.bundle")
+    add_rules("recudo.lua.bundle")
     add_files("src/**.lua")
-    set_values("forge.lua.entry", "src/main.lua")
+    set_values("recudo.lua.entry", "src/main.lua")
 
     -- Optional: supply a custom C template for specialized runtimes (e.g., SDL, Watcom GUI)
-    -- set_values("forge.lua.template", "src/custom_main.c.in")
+    -- set_values("recudo.lua.template", "src/custom_main.c.in")
 ```
 
-### 5. Environment & IDE Integration (`xmake forge env`)
+### 5. Environment & IDE Integration (`xmake recudo env`)
 Export project-local `LUA_PATH` and `LUA_CPATH` without global pollution:
 ```bash
 # Set environment in current shell session (like luarocks path)
-eval $(xmake forge env)
+eval $(xmake recudo env)
 
 # Export .env file for VS Code, Neovim & LuaLS (Language Server)
-xmake forge env --export-env
+xmake recudo env --export-env
 ```
 
 ### 6. Lua modules as xmake packages
 
-Forge treats a Lua module as an xmake package. There is no rockspec. Including Forge registers the local repository `forge-lua`. A recipe in `repository/packages` is an ordinary xmake project: metadata, then a `target` with `forge.lua.module`. `require` finds it through `LUA_PATH` and `LUA_CPATH`.
+Recudo treats a Lua module as an xmake package. There is no rockspec. Including Recudo registers the local repository `recudo-lua`. A recipe in `repository/packages` is an ordinary xmake project: metadata, then a `target` with `recudo.lua.module`. `require` finds it through `LUA_PATH` and `LUA_CPATH`.
 
 #### Pure Lua (`.lua` only)
 
-A project made only of `.lua` files does not compile C and does not require the `lua` package. `xmake run` uses a Lua `>= 5.4` interpreter from `PATH` or `LUA_BIN`. Dependencies are pure Lua recipes such as `forge-hello`:
+A project made only of `.lua` files does not compile C and does not require the `lua` package. `xmake run` uses a Lua `>= 5.4` interpreter from `PATH` or `LUA_BIN`. Dependencies are pure Lua recipes such as `recudo-hello`:
 
 ```lua
-add_requires("forge-hello")
+add_requires("recudo-hello")
 
 target("app")
-    add_rules("forge.lua.app")
-    set_values("forge.lua.entry", "src/main.lua")
+    add_rules("recudo.lua.app")
+    set_values("recudo.lua.entry", "src/main.lua")
     add_files("src/main.lua")
-    add_packages("forge-hello")
+    add_packages("recudo-hello")
 ```
 
-`repository/packages/f/forge-hello/xmake.lua` is the recipe:
+`repository/packages/r/recudo-hello/xmake.lua` is the recipe:
 
 ```lua
 set_kind("library", {headeronly = true})
-set_homepage("https://github.com/projectum-lunare/forge")
-set_description("Example pure Lua module installed by Forge")
+set_homepage("https://github.com/projectum-lunare/recudo")
+set_description("Example pure Lua module installed by Recudo")
 set_license("MPL-2.0")
 
-target("forge.hello")
-    add_rules("forge.lua.module")
+target("recudo.hello")
+    add_rules("recudo.lua.module")
     add_files("src/hello.lua")
 ```
 
-`forge.lua.module` installs the file where `require` looks. `set_kind("library", {headeronly = true})` tells xmake there is no C library. A C module adds `add_deps("lua")` and lists its `.c` file on the target. A tarball that has no xmake project, such as LPeg, is the case that receives a generated `xmake.lua` at install time.
+`recudo.lua.module` installs the file where `require` looks. `set_kind("library", {headeronly = true})` tells xmake there is no C library. A C module adds `add_deps("lua")` and lists its `.c` file on the target. A tarball that has no xmake project, such as LPeg, is the case that receives a generated `xmake.lua` at install time.
 
-`forge.lua.bundle` is the step that leaves pure Lua: it generates a C executable, so that target needs the `lua` package even when every script is `.lua`.
+`recudo.lua.bundle` is the step that leaves pure Lua: it generates a C executable, so that target needs the `lua` package even when every script is `.lua`.
 
 #### Pure Lua project, C recipe
 
@@ -228,42 +228,42 @@ That choice applies to the targets and to every package dependency. Amiga, Atari
 In dynamic mode the recipe records the Lua package directory. `xmake run` copies the interpreter, `liblua` and the modules into `build/bin/<app>.runtime`. `bin/lua` puts `../lib` on the loader path. `LUA_PATH` and `LUA_CPATH` do not fall through to the system tree. Copy `build/bin/<app>` together with `build/bin/<app>.runtime`.
 
 ```lua
-add_requires("forge-native")
+add_requires("recudo-native")
 
 target("app")
-    add_rules("forge.lua.app")
-    set_values("forge.lua.entry", "src/main.lua")
+    add_rules("recudo.lua.app")
+    set_values("recudo.lua.entry", "src/main.lua")
     add_files("src/main.lua")
-    add_packages("forge-native")
+    add_packages("recudo-native")
 ```
 
-In static mode there is no `.so`. `forge.lua.bundle` links the static `luaopen_*` and `liblua.a` into one executable.
+In static mode there is no `.so`. `recudo.lua.bundle` links the static `luaopen_*` and `liblua.a` into one executable.
 
 #### Native modules
 
-A C module follows the same `--kind`. Shared mode installs `.so` or `.dll`. Static mode installs only the archive and `forge.lua.bundle` links `luaopen_*`. Amiga, Atari, KolibriOS, DOS, OS/2, Windows CE and Wasm install the archive in either mode.
+A C module follows the same `--kind`. Shared mode installs `.so` or `.dll`. Static mode installs only the archive and `recudo.lua.bundle` links `luaopen_*`. Amiga, Atari, KolibriOS, DOS, OS/2, Windows CE and Wasm install the archive in either mode.
 
 ```lua
 add_requires("lua", {system = false})
-add_requires("forge-hello", "forge-native")
+add_requires("recudo-hello", "recudo-native")
 
 target("app")
-    add_rules("forge.lua.app")
-    set_values("forge.lua.entry", "src/main.lua")
+    add_rules("recudo.lua.app")
+    set_values("recudo.lua.entry", "src/main.lua")
     add_files("src/main.lua")
-    add_packages("lua", "forge-hello", "forge-native")
+    add_packages("lua", "recudo-hello", "recudo-native")
 ```
 
-`repository/packages/f/forge-hello` and `forge-native` are the reference recipes. LPeg has no xmake project, so its recipe writes one at install time. A new recipe lives at `packages/<initial>/<name>/xmake.lua`. Another recipe tree is registered with `add_repositories("my-lua /path/to/repo")`.
+`repository/packages/r/recudo-hello` and `recudo-native` are the reference recipes. LPeg has no xmake project, so its recipe writes one at install time. A new recipe lives at `packages/<initial>/<name>/xmake.lua`. Another recipe tree is registered with `add_repositories("my-lua /path/to/repo")`.
 
-#### Multi-Runtime Orchestration (`@addon.forge.lua.runtime`)
+#### Multi-Runtime Orchestration (`@addon.recudo.lua.runtime`)
 
 Recipes in package repositories or downstream consumer projects can declare multi-runtime compatibility and version constraints with clean, boilerplate-free syntax:
 
 ```lua
 package("my-extension")
     on_load(function (package)
-        import("@addon.forge.lua.runtime").setup(package, {
+        import("@addon.recudo.lua.runtime").setup(package, {
             runtime = {"lua", "luajit"},
             version = ">=5.1 <=5.3",
         })
@@ -272,25 +272,25 @@ package("my-extension")
     on_install(function (package)
         io.writefile("xmake.lua", [[
             target("my_extension")
-                add_rules("forge.lua.module")
+                add_rules("recudo.lua.module")
                 add_files("src/*.c")
         ]])
-        import("@addon.forge.lua.module").install_project(package)
+        import("@addon.recudo.lua.module").install_project(package)
     end)
 ```
 
 - **Seamless ABI Separation:** Dynamically registers runtime configurations to calculate distinct `buildhash` cache keys, preventing collisions between PUC-Lua and LuaJIT artifacts.
 - **Targeted Runtimes:** Supports `lua` (PUC-Lua), `luajit`, and `openresty-luajit`. Mono-runtime packages can declare `runtime = "luajit"` directly.
 
-### 7. LÖVE 2D Game Engine Integration (`forge.engine.love`)
+### 7. LÖVE 2D Game Engine Integration (`recudo.engine.love`)
 
-Forge provides first-class support for developing and distributing 2D games with the [LÖVE (Love2D)](https://love2d.org) engine:
+Recudo provides first-class support for developing and distributing 2D games with the [LÖVE (Love2D)](https://love2d.org) engine:
 
 ```lua
 add_rules("mode.release", "mode.debug")
 
 target("my_game")
-    add_rules("forge.engine.love")
+    add_rules("recudo.engine.love")
 
     -- Add native C modules from xmake-repo; automatically discovered & preloaded!
     add_packages("lua-cjson", "lpeg")
@@ -301,25 +301,25 @@ target("my_game")
 ```
 
 #### Key Capabilities:
-- **Dynamic C Extension Preloading:** Automatically inspects package manifests (`share/forge/lua-modules.lua`) across target dependencies to register each native library into `package.preload` in a generated C++ launcher. No hardcoded module tables and no manual C++ boilerplate required.
+- **Dynamic C Extension Preloading:** Automatically inspects package manifests (`share/recudo/lua-modules.lua`) across target dependencies to register each native library into `package.preload` in a generated C++ launcher. No hardcoded module tables and no manual C++ boilerplate required.
 - **Fast Development Cycle (`xmake run`):** In debug/development mode, executes the game directly from `src/` with instant iteration.
 - **Standalone Fused Binary (`xmake -m release`):** Automatically packages Lua files and assets into a ZIP bundle and fuses it directly to the executable binary. Produces a single, self-contained native executable (`my_game` / `my_game.exe`) with no separate `.love` archive required for the end user.
 - **LuaJIT or PUC Lua Runtime:** Inherits the runtime configured in `packages/l/love` (`luajit` for maximum performance, or `lua 5.1` for PUC Lua compatibility).
 
 #### Target Values & Configuration:
-- `set_values("forge.engine.love.dir", "src")`: Explicit root directory containing `main.lua` (auto-detected by default).
-- `set_values("forge.engine.love.fused", true|false)`: Force fused binary generation on or off (defaults to `true` in release mode, `false` in debug mode).
-- `set_values("forge.engine.love.modules", {{name = "mymod", symbol = "luaopen_mymod"}})`: Manual registration for custom in-tree C modules.
+- `set_values("recudo.engine.love.dir", "src")`: Explicit root directory containing `main.lua` (auto-detected by default).
+- `set_values("recudo.engine.love.fused", true|false)`: Force fused binary generation on or off (defaults to `true` in release mode, `false` in debug mode).
+- `set_values("recudo.engine.love.modules", {{name = "mymod", symbol = "luaopen_mymod"}})`: Manual registration for custom in-tree C modules.
 
-### 8. Amulet Game Toolkit Integration (`forge.engine.amulet`)
+### 8. Amulet Game Toolkit Integration (`recudo.engine.amulet`)
 
-Forge provides first-class support for creating and distributing audio/visual 2D/3D games with the [Amulet](http://www.amulet.xyz/) game toolkit:
+Recudo provides first-class support for creating and distributing audio/visual 2D/3D games with the [Amulet](http://www.amulet.xyz/) game toolkit:
 
 ```lua
 add_rules("mode.release", "mode.debug")
 
 target("my_game")
-    add_rules("forge.engine.amulet")
+    add_rules("recudo.engine.amulet")
 
     -- Add native C modules; automatically preloaded into package.preload!
     add_packages("lua-cjson", "lpeg")
@@ -336,17 +336,17 @@ target("my_game")
 - **Dual Package Support:** Uses the enhanced `amulet` package in `projectum-lunare/xmake-repo` providing both static library linkage (`libamulet.a`), headers, and standalone CLI tool.
 
 #### Target Values & Configuration:
-- `set_values("forge.engine.amulet.dir", "src")`: Explicit root directory containing `main.lua` (auto-detected by default).
-- `set_values("forge.engine.amulet.fused", true|false)`: Force `data.pak` packaging on or off (defaults to `true` in release mode, `false` in debug mode).
-- `set_values("forge.engine.amulet.modules", {{name = "mymod", symbol = "luaopen_mymod"}})`: Manual registration for custom in-tree C modules.
+- `set_values("recudo.engine.amulet.dir", "src")`: Explicit root directory containing `main.lua` (auto-detected by default).
+- `set_values("recudo.engine.amulet.fused", true|false)`: Force `data.pak` packaging on or off (defaults to `true` in release mode, `false` in debug mode).
+- `set_values("recudo.engine.amulet.modules", {{name = "mymod", symbol = "luaopen_mymod"}})`: Manual registration for custom in-tree C modules.
 
-### 9. Teal Typed Lua Integration (`forge.lang.teal`)
+### 9. Teal Typed Lua Integration (`recudo.lang.teal`)
 
-Forge provides first-class support for the [Teal](https://github.com/teal-language/tl) statically typed dialect of Lua:
+Recudo provides first-class support for the [Teal](https://github.com/teal-language/tl) statically typed dialect of Lua:
 
 ```lua
 target("my_typed_lib")
-    add_rules("forge.lua.module", "forge.lang.teal")
+    add_rules("recudo.lua.module", "recudo.lang.teal")
     add_files("src/**.tl")
 ```
 
@@ -355,16 +355,16 @@ target("my_typed_lib")
 - **Strict Static Type Checking:** Verifies types at compile time via `tl gen -c`, catching errors early in the build graph before runtime.
 - **Transpilation Pipeline:** Compiles typed Teal definitions into clean, standard Lua files placed in `build/lua/` and installed canonically into `share/lua/` and `lib/`.
 - **Target Options:**
-  - `set_values("forge.lang.teal.check", false)`: Disable strict type validation if needed.
-  - `set_values("forge.lang.teal.outdir", "custom/dir")`: Explicit custom destination for transpiled Lua code.
+  - `set_values("recudo.lang.teal.check", false)`: Disable strict type validation if needed.
+  - `set_values("recudo.lang.teal.outdir", "custom/dir")`: Explicit custom destination for transpiled Lua code.
 
-### 10. Nelua Systems Language Integration (`forge.lang.nelua`)
+### 10. Nelua Systems Language Integration (`recudo.lang.nelua`)
 
-Forge provides first-class integration for [Nelua](https://nelua.io/), a statically typed, meta-programmable systems programming language heavily inspired by Lua that compiles to C and WebAssembly:
+Recudo provides first-class integration for [Nelua](https://nelua.io/), a statically typed, meta-programmable systems programming language heavily inspired by Lua that compiles to C and WebAssembly:
 
 ```lua
 target("my_systems_app")
-    add_rules("forge.lang.nelua")
+    add_rules("recudo.lang.nelua")
     add_files("src/*.nelua")
 ```
 
@@ -373,44 +373,44 @@ target("my_systems_app")
 - **Dual Backend Support (C & Lua):** Supports compiling to native binaries/libraries or emitting clean Lua code:
   ```lua
   target("my_nelua_to_lua")
-      add_rules("forge.lang.nelua")
-      set_values("forge.lang.nelua.generator", "lua")
+      add_rules("recudo.lang.nelua")
+      set_values("recudo.lang.nelua.generator", "lua")
       add_files("src/*.nelua")
   ```
 - **Target Options & Flags:**
-  - `set_values("forge.lang.nelua.generator", "c"|"lua")`: Backend generator to use (defaults to `"c"`).
-  - `set_values("forge.lang.nelua.maximum_performance", true)`: Enable `-M` maximum performance optimizations.
-  - `set_values("forge.lang.nelua.defines", {"MY_DEF=1"})`: Pass custom `-D` preprocessor definitions.
-  - `set_values("forge.lang.nelua.pragmas", {"nogc"})`: Set initial Nelua compiler pragmas (`-P`).
+  - `set_values("recudo.lang.nelua.generator", "c"|"lua")`: Backend generator to use (defaults to `"c"`).
+  - `set_values("recudo.lang.nelua.maximum_performance", true)`: Enable `-M` maximum performance optimizations.
+  - `set_values("recudo.lang.nelua.defines", {"MY_DEF=1"})`: Pass custom `-D` preprocessor definitions.
+  - `set_values("recudo.lang.nelua.pragmas", {"nogc"})`: Set initial Nelua compiler pragmas (`-P`).
 
-### 11. Compile-to-Lua Transpilers (`forge.lang.*`)
+### 11. Compile-to-Lua Transpilers (`recudo.lang.*`)
 
-Forge provides first-class, seamless Ahead-of-Time (AOT) transpilation for the most popular compile-to-Lua languages. You can mix and match them inside standard Lua apps, modules, LÖVE 2D games, or Amulet projects:
+Recudo provides first-class, seamless Ahead-of-Time (AOT) transpilation for the most popular compile-to-Lua languages. You can mix and match them inside standard Lua apps, modules, LÖVE 2D games, or Amulet projects:
 
-#### Fennel Lisp (`forge.lang.fennel`)
+#### Fennel Lisp (`recudo.lang.fennel`)
 Compile [Fennel](https://fennel-lang.org) Lisp (`.fnl`) into clean Lua:
 ```lua
 target("my_fennel_game")
-    add_rules("forge.engine.love", "forge.lang.fennel")
+    add_rules("recudo.engine.love", "recudo.lang.fennel")
     add_files("src/**.fnl")
-    set_values("forge.lang.fennel.correlate", true) -- match source line numbers
+    set_values("recudo.lang.fennel.correlate", true) -- match source line numbers
 ```
 
-#### MoonScript (`forge.lang.moonscript`)
+#### MoonScript (`recudo.lang.moonscript`)
 Compile [MoonScript](https://moonscript.org) (`.moon`) CoffeeScript-style syntax into Lua:
 ```lua
 target("my_moon_module")
-    add_rules("forge.lua.module", "forge.lang.moonscript")
+    add_rules("recudo.lua.module", "recudo.lang.moonscript")
     add_files("src/**.moon")
 ```
 
-#### YueScript (`forge.lang.yuescript`)
+#### YueScript (`recudo.lang.yuescript`)
 Compile [YueScript](https://yuescript.org) (`.yue`), the high-performance C++-powered evolution of MoonScript:
 ```lua
 target("my_yue_app")
-    add_rules("forge.lua.app", "forge.lang.yuescript")
+    add_rules("recudo.lua.app", "recudo.lang.yuescript")
     add_files("src/**.yue")
-    set_values("forge.lang.yuescript.target", "5.1") -- target Lua 5.1/LuaJIT ABI
+    set_values("recudo.lang.yuescript.target", "5.1") -- target Lua 5.1/LuaJIT ABI
 ```
 
 ---
@@ -419,67 +419,67 @@ target("my_yue_app")
 
 ### Check SDK Status & Toolchain Matrix
 ```bash
-xmake forge list
+xmake recudo list
 ```
 
-### Interactive REPL (`xmake forge repl`)
+### Interactive REPL (`xmake recudo repl`)
 Launch an interactive Lua REPL with the project's exact environment, compiled C extensions, and package dependencies automatically resolved in `LUA_PATH` and `LUA_CPATH`:
 ```bash
 # Default runtime (PUC-Lua)
-xmake forge repl
+xmake recudo repl
 
 # Run with LuaJIT
-xmake forge -r luajit repl
+xmake recudo -r luajit repl
 
 # Evaluate an expression directly within the project environment and exit
-xmake forge --eval="local m = require('mymodule'); print(m.hello())" repl
+xmake recudo --eval="local m = require('mymodule'); print(m.hello())" repl
 ```
 
-### Instant Project Scaffolding (`xmake forge create`)
+### Instant Project Scaffolding (`xmake recudo create`)
 Quickly instantiate new idiomatic projects from built-in templates:
 ```bash
 # Create a runnable Lua app (with binary launcher)
-xmake forge create myapp -t app
+xmake recudo create myapp -t app
 
 # Create a reusable pure Lua module
-xmake forge create mymod -t module
+xmake recudo create mymod -t module
 
 # Create a native C extension (.so/.dll) compatible across Lua 5.1-5.4 & LuaJIT
-xmake forge create mynative -t cmodule
+xmake recudo create mynative -t cmodule
 
 # Create a LÖVE 2D game
-xmake forge create mygame -t love
+xmake recudo create mygame -t love
 
 # Create a LÖVE 2D game with Lua 5.3 compatibility layer (utf8, table/string pack)
-xmake forge create mygame -t love-compat
+xmake recudo create mygame -t love-compat
 
 # Create an Amulet 2D/3D game
-xmake forge create myamulet -t amulet
+xmake recudo create myamulet -t amulet
 
 # Create an Amulet 2D/3D game with Lua 5.3 compatibility layer (utf8, table/string pack)
-xmake forge create myamulet -t amulet-compat
+xmake recudo create myamulet -t amulet-compat
 ```
 *Tip: Standard Xmake creation syntax is also fully supported, e.g. `xmake create -l lua -t cmodule mynative`.*
 
 ### Build for a Specific Target
 Target builds are isolated by default into `build/<target>` (e.g. `build/dos`, `build/amiga`), preserving independent configurations and artifacts:
 ```bash
-xmake forge amiga
-xmake forge atari
-xmake forge kolibri
-xmake forge dos
-xmake forge os2
-xmake forge wince
-xmake forge freebsd
-xmake forge posix
+xmake recudo amiga
+xmake recudo atari
+xmake recudo kolibri
+xmake recudo dos
+xmake recudo os2
+xmake recudo wince
+xmake recudo freebsd
+xmake recudo posix
 
 # To disable build directory isolation and build into root build/:
-xmake forge dos --no-isolate
+xmake recudo dos --no-isolate
 ```
 
 ### Run Full Multi-Platform Matrix Build
 ```bash
-xmake forge all
+xmake recudo all
 ```
 
 ---

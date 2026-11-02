@@ -1,4 +1,4 @@
--- Projectum Lunare Forge - BSD Architecture Normalization & Cross-Detection Module
+-- Projectum Lunare Recudo - BSD Architecture Normalization & Cross-Detection Module
 -- Copyright (C) 2026 Gustavo Veiga <gustavo.veiga@outlook.com.br>
 -- Mozilla Public License Version 2.0
 

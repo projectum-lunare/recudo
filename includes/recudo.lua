@@ -1,11 +1,11 @@
--- Projectum Lunare Forge - Unified Build, Toolchain & Cross-Compilation Addon
+-- Projectum Lunare Recudo - Unified Build, Toolchain & Cross-Compilation Addon
 -- Automatically exports platforms, rules, toolchains, modules and canonical architectures
 
--- Resolve forge addon root directory.
+-- Resolve recudo addon root directory.
 -- A recipe build includes this file, so scriptdir is the addon includes
--- directory. FORGE_LUA_ROOT covers a run where the text is prepended to the
+-- directory. RECUDO_LUA_ROOT covers a run where the text is prepended to the
 -- recipe and scriptdir would otherwise be the recipe directory.
-local rootdir = getenv("FORGE_LUA_ROOT")
+local rootdir = getenv("RECUDO_LUA_ROOT")
 if not rootdir or rootdir == "" then
     rootdir = path.directory(os.scriptdir())
 end
@@ -40,19 +40,19 @@ includes(path.join(rootdir, "plugins/*/xmake.lua"))
 -- Packages are installed before target on_load, so the repository has to be
 -- registered while the project script is still loading. on_load refreshes it
 -- for the next configure.
-if getenv("FORGE_LUA_PROJECT") ~= "1" and os.isdir(path.join(rootdir, "repository", "repo")) then
-    add_repositories("forge-lua repository/repo", {rootdir = rootdir})
+if getenv("RECUDO_LUA_PROJECT") ~= "1" and os.isdir(path.join(rootdir, "repository", "repo")) then
+    add_repositories("recudo-lua repository/repo", {rootdir = rootdir})
 end
 
-if getenv("FORGE_LUA_PROJECT") ~= "1" then
-    target("__forge_lua_repo")
+if getenv("RECUDO_LUA_PROJECT") ~= "1" then
+    target("__recudo_lua_repo")
         set_kind("phony")
         set_default(false)
         on_load(function ()
             local repodir = import("lua.repo").publish()
             if repodir then
-                import("core.package.repository").add("forge-lua", repodir)
-                import("core.package.repository").load("forge-lua", repodir)
+                import("core.package.repository").add("recudo-lua", repodir)
+                import("core.package.repository").load("recudo-lua", repodir)
             end
         end)
 end
@@ -60,7 +60,7 @@ end
 -- The recipe is an ordinary xmake project. Its package metadata is ignored here.
 -- Inside a rule or toolchain the real interface stays in place. At the root,
 -- add_deps("lua") is the package dependency.
-if getenv("FORGE_LUA_PROJECT") == "1" then
+if getenv("RECUDO_LUA_PROJECT") == "1" then
     function set_homepage() end
     function set_description() end
     function set_license() end
