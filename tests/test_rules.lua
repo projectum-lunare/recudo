@@ -196,7 +196,7 @@ function main(T)
             local mock_wibo = path.join(mock_evc3, "wibo")
             io.writefile(mock_wibo, "#!/bin/sh\nexit 0\n")
             if os.host() ~= "windows" then
-                os.tryrunv("chmod", {"+x", mock_wibo})
+                os.runv("chmod", {"+x", mock_wibo})
             end
             os.setenv("EVC3_DIR", mock_evc3)
             os.setenv("WIBO_BIN", mock_wibo)
@@ -215,8 +215,8 @@ function main(T)
             io.writefile(fake_owcc, "#!/bin/sh\nexit 0\n")
             io.writefile(fake_wlib, "#!/bin/sh\nexit 0\n")
             if os.host() ~= "windows" then
-                os.tryrunv("chmod", {"+x", fake_owcc})
-                os.tryrunv("chmod", {"+x", fake_wlib})
+                os.runv("chmod", {"+x", fake_owcc})
+                os.runv("chmod", {"+x", fake_wlib})
             end
             os.setenv("WATCOM", mock_watcom)
         end
