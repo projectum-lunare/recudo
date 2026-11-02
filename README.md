@@ -1,70 +1,33 @@
 # Projectum Lunare Recudo
 
-> **Unified Build, Toolchain & Cross-Compilation Addon for Xmake**  
-> Architected for retro, embedded, and modern systems across the Projectum Lunare ecosystem.
+> **Lua, where Lua rarely goes.**  
+> Build, cross-compile and ship Lua for machines that never met it — Amiga, Atari ST, DOS, OS/2, Windows CE, KolibriOS — and keep the same project running on modern BSDs and Linux.
 
 [![License: MPL 2.0](https://img.shields.io/badge/License-MPL_2.0-blue.svg)](https://opensource.org/licenses/MPL-2.0)
 [![Build System: Xmake](https://img.shields.io/badge/Build%20System-Xmake-red.svg)](https://xmake.io)
 
 ---
 
-## Overview
-
-**Recudo** is the official build infrastructure and cross-compilation engine for **Projectum Lunare** (powering [`solo`](https://github.com/projectum-lunare/solo), [`dotstar`](https://github.com/projectum-lunare/dotstar), and other systems).
-
-Instead of reinventing low-level DAG build graphs from scratch, Recudo integrates natively into [Xmake](https://xmake.io) as a modular addon, providing:
-
-- **Formal Custom Platforms:** First-class declarations for vintage systems (`amiga`, `atari`, `kolibri`, `dos`, `os2`, `wince`) and distinct modern BSD platforms (`freebsd`, `openbsd`, `netbsd`, `dragonflybsd`).
-- **Automatic Default Architectures:** Automatic mappings (`amiga|m68k`, `atari|m68k`, `kolibri|i386`, `dos|i386`, `os2|i386`, `wince|arm`, `freebsd|x86_64`, `openbsd|x86_64`, `netbsd|x86_64`, `dragonflybsd|x86_64`).
-- **Native Compiler Rules:** Direct execution of non-standard toolchains (`Open Watcom` v2 for DOS/OS2 via `owcc`/`wlib`, `Microsoft eVC 3.0` via `wibo`) using native Xmake batch commands without brittle shell/Python wrapper scripts.
-- **Cross-Platform SDK Detection:** Automatic resolution across Unix (`~/.local/opt/<sdk>`) and Windows (`%APPDATA%`, `%LOCALAPPDATA%`).
-- **First-Class Lua Subsystem (LuaRocks Alternative):** Native project management for pure Lua libraries, native C extensions (`.so`/`.dll` and static retro archives), portable executable launchers, monolithic single-binary bundlers, and zero-friction isolated environments (`LUA_PATH`/`LUA_CPATH`).
-- **Universal Multi-Runtime Engine (`@addon.recudo.lua.runtime`):** Declarative orchestration of PUC-Lua, LuaJIT, and OpenResty dependencies with automated ABI buildhash isolation and semver constraints.
-- **Interactive Development & Scaffolding:** Instant REPL with project-aware environment (`xmake recudo repl`) and canonical scaffolding templates (`xmake recudo create`).
-- **LÖVE 2D Game Engine Integration (`recudo.engine.love`):** Native rule for game development, dynamic C-extension preloading without boilerplate, fast local dev runs, and release-ready fused standalone binaries.
-- **Amulet Game Toolkit Integration (`recudo.engine.amulet`):** Native rule for 2D/3D audio/visual games, dynamic C-extension preload hook into Amulet's runtime, instant development iteration, and standalone release bundle packaging (`data.pak`).
-- **Teal Typed Lua Integration (`recudo.lang.teal`):** Native rule providing gradual static typing, strict type-checking, and transpilation into clean Lua.
-- **Nelua Systems Language Integration (`recudo.lang.nelua`):** Native rule compiling statically-typed, meta-programmable systems code directly to ANSI/C99 (for vintage & modern toolchains) or clean Lua.
-- **Compile-to-Lua Transpilers (`recudo.lang.*`):** Native `recudo.lang.fennel`, `recudo.lang.moonscript`, and `recudo.lang.yuescript` rules providing seamless Ahead-of-Time (AOT) transpilation of `.fnl`, `.moon`, and `.yue` files into clean Lua code.
-- **Matrix Orchestration CLI:** High-level `xmake recudo` tasks to audit, cross-compile, and benchmark builds across target architectures.
+> *"Theatrum meum recudo; eius media pars recusa ante annum fuit."*  
+> *"I am re-striking my Theatrum; its middle section was re-struck before this year."*  
+> — Abraham Ortelius, on re-engraving the plates of the first modern atlas — Antwerp, 2 May 1591
 
 ---
 
-## Supported Platforms & Toolchains
+## Why Recudo
 
-| Platform            | Target OS           | Default Arch         | Supported Architectures (Xmake Normalized)                                                                         | Toolchain   | Toolset / Compiler                              | SDK Fallback                 |
-| :------------------ | :------------------ | :------------------- | :----------------------------------------------------------------------------------------------------------------- | :---------- | :---------------------------------------------- | :--------------------------- |
-| **`amiga`**         | AmigaOS Classic     | `m68k`               | `m68k`                                                                                                             | `amigaos`   | Bebbo GCC (`m68k-amigaos-gcc`)                  | `~/.local/opt/amigaos-sdk`   |
-| **`atari`**         | Atari ST / FreeMiNT | `m68k`               | `m68k`                                                                                                             | `atarist`   | FreeMiNT GCC (`m68k-atari-mint-gcc`)            | `~/.local/opt/atarist-sdk`   |
-| **`kolibri`**       | KolibriOS           | `i386`               | `i386`                                                                                                             | `kolibrios` | KolibriOS GCC (`kos32-gcc`)                     | `~/.local/opt/kolibrios-sdk` |
-| **`dos`**           | MS-DOS 32-bit       | `i386`               | `i386`                                                                                                             | `watcom`    | Open Watcom v2 (`owcc -b dos32a`)               | `~/.local/opt/watcom`        |
-| **`os2`**           | OS/2 32-bit Warp    | `i386`               | `i386`                                                                                                             | `watcom`    | Open Watcom v2 (`owcc -b os2v2`)                | `~/.local/opt/watcom`        |
-| **`wince`**         | Windows CE 3.0      | `arm`                | `arm`, `mips`, `ppc`, `sh3`, `sh4`, `x86`                                                                          | `evc3`      | MS eVC 3.0 (`clarm.exe`, `link.exe`, `lib.exe` via `wibo`) | `~/.local/opt/evc3`          |
-| **`freebsd`**       | FreeBSD             | `x86_64`             | `x86_64`, `i386`, `arm64`, `armv7`, `ppc`, `ppc64`, `ppc64le`, `ppcspe`, `riscv64`                                | `clang/gcc` | System / LLVM Clang, GCC                        | Host Native / Cross-Tools    |
-| **`openbsd`**       | OpenBSD             | `x86_64`             | `x86_64`, `i386`, `arm64`, `armv7`, `alpha`, `hppa`, `m88k`, `mips64`, `ppc`, `ppc64`, `riscv64`, `sh4`, `sparc64`| `clang/gcc` | System / LLVM Clang, GCC                        | Host Native / Cross-Tools    |
-| **`netbsd`**        | NetBSD              | `x86_64`             | `x86_64`, `i386`, `arm`, `arm64`, `alpha`, `hppa`, `ia64`, `m68k`, `m68010`, `mips`, `mips64`, `mipseb`, `mipsel`, `ppc`, `ppc64`, `riscv32`, `riscv64`, `sh3`, `sh3eb`, `sh3el`, `sparc`, `sparc64`, `vax` | `gcc/clang` | System GCC, LLVM Clang                          | Host Native / Cross-Tools    |
-| **`dragonflybsd`**  | DragonFly BSD       | `x86_64`             | `x86_64`                                                                                                           | `gcc/clang` | System GCC, LLVM Clang                          | Host Native / Cross-Tools    |
-| **`linux`**         | Linux / POSIX Host  | `x86_64`             | `x86_64`, `i386`, `arm64`, `armv7`, `riscv64`, `ppc64le`, etc.                                                     | `host`      | System Clang / GCC                              | Host Native                  |
+When retro computing comes up, you think C and assembly. Rarely Lua. Yet Lua is small, written in ISO C, fits in a few hundred kilobytes, and asks almost nothing of the host — exactly the qualities vintage machines reward. What is missing is not the interpreter: it is everything around it. Packaging, linking, launcher scripts, bundling, version pinning — all of it is hand-rolled, per machine, every time.
 
-### First-Class BSD Platforms & Architecture Normalization
+**Recudo** closes that gap. It is the build infrastructure and Lua delivery pipeline of **Projectum Lunare** (powering [`solo`](https://github.com/projectum-lunare/solo), [`dotstar`](https://github.com/projectum-lunare/dotstar), and other systems), implemented as a native [Xmake](https://xmake.io) addon. Instead of reinventing low-level DAG build graphs, one `xmake.lua` drives the C toolchain and the Lua pipeline side by side:
 
-Standard Xmake merges all BSD distributions into a single generic `bsd` platform. Recudo separates them into first-class targets (`freebsd`, `openbsd`, `netbsd`, and `dragonflybsd`) while normalizing official upstream architecture names into canonical Xmake identifiers:
+- **One source, many dies.** The same module becomes a `.so` on Linux, a static archive on Amiga, and a fused single-binary on release — struck through each toolchain like a coin through its die.
+- **A complete Lua pipeline** — modules, native C extensions, app launchers, monolithic bundles, isolated environments — a LuaRocks alternative that lives inside the build graph.
+- **Vintage toolchains as first-class citizens** — Open Watcom v2, MS eVC 3.0, Bebbo GCC, FreeMiNT GCC, Kos32 GCC — executed as native Xmake rules, with no brittle shell or Python wrapper scripts.
+- **Formal custom platforms** — `amiga`, `atari`, `kolibri`, `dos`, `os2`, `wince`, plus first-class `freebsd`, `openbsd`, `netbsd` and `dragonflybsd`.
+- **Beyond plain Lua** — LÖVE 2D and Amulet game packaging, Teal static typing, Nelua systems code, and Fennel/MoonScript/YueScript transpilers, all flowing through the same pipeline.
+- **Matrix orchestration** — `xmake recudo` to audit, cross-compile and benchmark across every target.
 
-- **FreeBSD** ([Official Releases](https://www.freebsd.org/where/)):
-  - `amd64` &rarr; `x86_64` | `i386` &rarr; `i386` | `aarch64` &rarr; `arm64` | `armv7` &rarr; `armv7`
-  - `powerpc` &rarr; `ppc` | `powerpc64` &rarr; `ppc64` | `powerpc64le` &rarr; `ppc64le` | `powerpcspe` &rarr; `ppcspe` | `riscv64` &rarr; `riscv64`
-- **OpenBSD** ([Official FAQ #4 Platforms](https://www.openbsd.org/faq/faq4.html#Download)):
-  - `alpha` &rarr; `alpha` | `amd64` &rarr; `x86_64` | `arm64` &rarr; `arm64` | `armv7` &rarr; `armv7` | `hppa` &rarr; `hppa` | `i386` &rarr; `i386`
-  - `landisk` (SuperH SH4) &rarr; `sh4` | `luna88k` (Motorola 88k) &rarr; `m88k` | `macppc` (PowerPC 32) &rarr; `ppc`
-  - `octeon` (MIPS64) &rarr; `mips64` | `powerpc64` &rarr; `ppc64` | `riscv64` &rarr; `riscv64` | `sparc64` &rarr; `sparc64`
-- **DragonFly BSD** ([Official Releases](https://www.dragonflybsd.org/download/)):
-  - Pure 64-bit x86 &rarr; `x86_64` (alias `dragonfly` also supported)
-- **NetBSD** ([Official Ports Wiki](https://wiki.netbsd.org/ports/)):
-  - `amd64` &rarr; `x86_64` | `i386` &rarr; `i386` | `aarch64` &rarr; `arm64` | `arm` &rarr; `arm`
-  - `mips` &rarr; `mips`, `mips64`, `mipseb`, `mipsel` | `powerpc` &rarr; `ppc`, `ppc64`
-  - `alpha` &rarr; `alpha` | `m68k` &rarr; `m68k` | `m68010` &rarr; `m68010` | `itanium` &rarr; `ia64`
-  - `riscv` &rarr; `riscv32`, `riscv64` | `sparc` &rarr; `sparc`, `sparc64` | `vax` &rarr; `vax` | `hppa` &rarr; `hppa`
-  - `sh3 (sh3eb / sh3el)` &rarr; `sh3`, `sh3eb`, `sh3el`
+*recudo* — Latin, *recudere*: *to strike anew; to re-forge; to re-mint*. The name is the job, twice over: re-striking one source through every die in the matrix — and re-forging the Lua ecosystem itself, where rockspecs give way to ordinary xmake recipes, folders of scripts give way to single executables, and the map of destinations grows to machines the ecosystem never shipped to.
 
 ---
 
@@ -77,45 +40,36 @@ xmake addon --install github:projectum-lunare/recudo
 
 ---
 
-## Usage in Projects (`xmake.lua`)
+## Sixty Seconds: Lua on a 68020
 
-Declare Recudo as a project addon dependency:
+One project, one `xmake.lua`, a native C module and a pure Lua app — built for the host and for two vintage machines:
+
 ```lua
 add_addons("recudo")
 includes("@addon/recudo/recudo.lua")
+
+target("hello.native")
+    add_rules("recudo.lua.module")   -- shared .so/.dll on desktop, static archive on vintage
+    add_files("src/native/*.c")
+
+target("hello")
+    add_rules("recudo.lua.app")      -- portable launcher in build/bin
+    set_values("recudo.lua.entry", "src/main.lua")
+    add_files("src/main.lua")
+    add_deps("hello.native")
 ```
 
-### Vintage Compiler Rules (`recudo.toolchain.watcom` & `recudo.toolchain.evc3`)
-
-For vintage targets with specialized proprietary toolchains, attach the native compilation rules:
-```lua
-target("my_retro_app")
-    set_kind("binary")
-    add_files("src/*.c")
-
-    -- Open Watcom v2 C compiler & linker (DOS 32-bit & OS/2 Warp)
-    if is_plat("dos", "os2") then
-        add_rules("recudo.toolchain.watcom", {override = true})
-    -- Microsoft Embedded Visual C++ 3.0 via wibo (Windows CE)
-    elseif is_plat("wince") then
-        add_rules("recudo.toolchain.evc3", {override = true})
-        -- For console apps using standard main() instead of GUI WinMain():
-        -- set_values("recudo.toolchain.evc3.entry", "mainACRTStartup")
-    end
+```bash
+xmake recudo posix   # host build (system GCC/Clang)    → build/posix
+xmake recudo amiga   # Bebbo GCC, m68k-amigaos-gcc      → build/amiga
+xmake recudo dos     # Open Watcom v2, owcc -b dos32a   → build/dos
 ```
-*(Standard platforms like `amiga`, `atari`, `kolibri`, `freebsd`, `openbsd`, `netbsd`, `dragonflybsd`, and `linux` use native GCC/Clang toolchains automatically with standard Xmake C/C++ build graphs).*
 
-> [!NOTE]
-> **Windows CE Entry Point:** By default, executables built with `recudo.toolchain.evc3` target the CE graphical subsystem and use `/entry:WinMainCRTStartup` (which invokes `WinMain`). If you are compiling a console / CLI application with a standard `main()`, set the entry point to `mainACRTStartup`:
-> ```lua
-> set_values("recudo.toolchain.evc3.entry", "mainACRTStartup")
-> -- or: add_ldflags("/entry:mainACRTStartup")
-> ```
-
+Iterate on the host with `xmake run hello`, then strike the same source through each die. When release day comes, `recudo.lua.bundle` fuses runtime, scripts and native modules into a single self-contained executable. The sections below unpack every step.
 
 ---
 
-## Lua Subsystem (Modern LuaRocks Alternative)
+## The Lua Pipeline
 
 Recudo provides a first-class build and execution system for Lua 5.4+ projects without requiring external package managers:
 
@@ -141,6 +95,8 @@ target("mylib.static")
     add_rules("recudo.lua.module")
     add_files("src/native/*.c")
 ```
+
+This is where the vintage story stops being a promise: Amiga, Atari, KolibriOS, DOS, OS/2, Windows CE and Wasm cannot `dlopen`, so the module ships as a plain archive and links straight into the final binary — native C extensions work everywhere, not only where dynamic loading exists.
 
 ### 3. Application Launcher (`recudo.lua.app`)
 Generates standalone portable shell (`sh`) / batch (`cmd`) launchers in `build/bin/<app>` and supports instant execution via `xmake run`:
@@ -282,6 +238,10 @@ package("my-extension")
 - **Seamless ABI Separation:** Dynamically registers runtime configurations to calculate distinct `buildhash` cache keys, preventing collisions between PUC-Lua and LuaJIT artifacts.
 - **Targeted Runtimes:** Supports `lua` (PUC-Lua), `luajit`, and `openresty-luajit`. Mono-runtime packages can declare `runtime = "luajit"` directly.
 
+---
+
+## Game Engines
+
 ### 7. LÖVE 2D Game Engine Integration (`recudo.engine.love`)
 
 Recudo provides first-class support for developing and distributing 2D games with the [LÖVE (Love2D)](https://love2d.org) engine:
@@ -339,6 +299,10 @@ target("my_game")
 - `set_values("recudo.engine.amulet.dir", "src")`: Explicit root directory containing `main.lua` (auto-detected by default).
 - `set_values("recudo.engine.amulet.fused", true|false)`: Force `data.pak` packaging on or off (defaults to `true` in release mode, `false` in debug mode).
 - `set_values("recudo.engine.amulet.modules", {{name = "mymod", symbol = "luaopen_mymod"}})`: Manual registration for custom in-tree C modules.
+
+---
+
+## Language Dialects
 
 ### 9. Teal Typed Lua Integration (`recudo.lang.teal`)
 
@@ -412,6 +376,79 @@ target("my_yue_app")
     add_files("src/**.yue")
     set_values("recudo.lang.yuescript.target", "5.1") -- target Lua 5.1/LuaJIT ABI
 ```
+
+---
+
+## Toolchains & Platforms: The Dies
+
+The pipeline above needs somewhere to strike. Recudo declares formal platforms and wires the compiler matrix, so choosing a target is one word on the command line.
+
+### Supported Platforms & Toolchains
+
+| Platform            | Target OS           | Default Arch         | Supported Architectures (Xmake Normalized)                                                                         | Toolchain   | Toolset / Compiler                              | SDK Fallback                 |
+| :------------------ | :------------------ | :------------------- | :----------------------------------------------------------------------------------------------------------------- | :---------- | :---------------------------------------------- | :--------------------------- |
+| **`amiga`**         | AmigaOS Classic     | `m68k`               | `m68k`                                                                                                             | `amigaos`   | Bebbo GCC (`m68k-amigaos-gcc`)                  | `~/.local/opt/amigaos-sdk`   |
+| **`atari`**         | Atari ST / FreeMiNT | `m68k`               | `m68k`                                                                                                             | `atarist`   | FreeMiNT GCC (`m68k-atari-mint-gcc`)            | `~/.local/opt/atarist-sdk`   |
+| **`kolibri`**       | KolibriOS           | `i386`               | `i386`                                                                                                             | `kolibrios` | KolibriOS GCC (`kos32-gcc`)                     | `~/.local/opt/kolibrios-sdk` |
+| **`dos`**           | MS-DOS 32-bit       | `i386`               | `i386`                                                                                                             | `watcom`    | Open Watcom v2 (`owcc -b dos32a`)               | `~/.local/opt/watcom`        |
+| **`os2`**           | OS/2 32-bit Warp    | `i386`               | `i386`                                                                                                             | `watcom`    | Open Watcom v2 (`owcc -b os2v2`)                | `~/.local/opt/watcom`        |
+| **`wince`**         | Windows CE 3.0      | `arm`                | `arm`, `mips`, `ppc`, `sh3`, `sh4`, `x86`                                                                          | `evc3`      | MS eVC 3.0 (`clarm.exe`, `link.exe`, `lib.exe` via `wibo`) | `~/.local/opt/evc3`          |
+| **`freebsd`**       | FreeBSD             | `x86_64`             | `x86_64`, `i386`, `arm64`, `armv7`, `ppc`, `ppc64`, `ppc64le`, `ppcspe`, `riscv64`                                | `clang/gcc` | System / LLVM Clang, GCC                        | Host Native / Cross-Tools    |
+| **`openbsd`**       | OpenBSD             | `x86_64`             | `x86_64`, `i386`, `arm64`, `armv7`, `alpha`, `hppa`, `m88k`, `mips64`, `ppc`, `ppc64`, `riscv64`, `sh4`, `sparc64`| `clang/gcc` | System / LLVM Clang, GCC                        | Host Native / Cross-Tools    |
+| **`netbsd`**        | NetBSD              | `x86_64`             | `x86_64`, `i386`, `arm`, `arm64`, `alpha`, `hppa`, `ia64`, `m68k`, `m68010`, `mips`, `mips64`, `mipseb`, `mipsel`, `ppc`, `ppc64`, `riscv32`, `riscv64`, `sh3`, `sh3eb`, `sh3el`, `sparc`, `sparc64`, `vax` | `gcc/clang` | System GCC, LLVM Clang                          | Host Native / Cross-Tools    |
+| **`dragonflybsd`**  | DragonFly BSD       | `x86_64`             | `x86_64`                                                                                                           | `gcc/clang` | System GCC, LLVM Clang                          | Host Native / Cross-Tools    |
+| **`linux`**         | Linux / POSIX Host  | `x86_64`             | `x86_64`, `i386`, `arm64`, `armv7`, `riscv64`, `ppc64le`, etc.                                                     | `host`      | System Clang / GCC                              | Host Native                  |
+
+### First-Class BSD Platforms & Architecture Normalization
+
+Standard Xmake merges all BSD distributions into a single generic `bsd` platform. Recudo separates them into first-class targets (`freebsd`, `openbsd`, `netbsd`, and `dragonflybsd`) while normalizing official upstream architecture names into canonical Xmake identifiers:
+
+- **FreeBSD** ([Official Releases](https://www.freebsd.org/where/)):
+  - `amd64` &rarr; `x86_64` | `i386` &rarr; `i386` | `aarch64` &rarr; `arm64` | `armv7` &rarr; `armv7`
+  - `powerpc` &rarr; `ppc` | `powerpc64` &rarr; `ppc64` | `powerpc64le` &rarr; `ppc64le` | `powerpcspe` &rarr; `ppcspe` | `riscv64` &rarr; `riscv64`
+- **OpenBSD** ([Official FAQ #4 Platforms](https://www.openbsd.org/faq/faq4.html#Download)):
+  - `alpha` &rarr; `alpha` | `amd64` &rarr; `x86_64` | `arm64` &rarr; `arm64` | `armv7` &rarr; `armv7` | `hppa` &rarr; `hppa` | `i386` &rarr; `i386`
+  - `landisk` (SuperH SH4) &rarr; `sh4` | `luna88k` (Motorola 88k) &rarr; `m88k` | `macppc` (PowerPC 32) &rarr; `ppc`
+  - `octeon` (MIPS64) &rarr; `mips64` | `powerpc64` &rarr; `ppc64` | `riscv64` &rarr; `riscv64` | `sparc64` &rarr; `sparc64`
+- **DragonFly BSD** ([Official Releases](https://www.dragonflybsd.org/download/)):
+  - Pure 64-bit x86 &rarr; `x86_64` (alias `dragonfly` also supported)
+- **NetBSD** ([Official Ports Wiki](https://wiki.netbsd.org/ports/)):
+  - `amd64` &rarr; `x86_64` | `i386` &rarr; `i386` | `aarch64` &rarr; `arm64` | `arm` &rarr; `arm`
+  - `mips` &rarr; `mips`, `mips64`, `mipseb`, `mipsel` | `powerpc` &rarr; `ppc`, `ppc64`
+  - `alpha` &rarr; `alpha` | `m68k` &rarr; `m68k` | `m68010` &rarr; `m68010` | `itanium` &rarr; `ia64`
+  - `riscv` &rarr; `riscv32`, `riscv64` | `sparc` &rarr; `sparc`, `sparc64` | `vax` &rarr; `vax` | `hppa` &rarr; `hppa`
+  - `sh3 (sh3eb / sh3el)` &rarr; `sh3`, `sh3eb`, `sh3el`
+
+### Vintage Compiler Rules (`recudo.toolchain.watcom` & `recudo.toolchain.evc3`)
+
+For vintage targets with specialized proprietary toolchains, attach the native compilation rules:
+```lua
+target("my_retro_app")
+    set_kind("binary")
+    add_files("src/*.c")
+
+    -- Open Watcom v2 C compiler & linker (DOS 32-bit & OS/2 Warp)
+    if is_plat("dos", "os2") then
+        add_rules("recudo.toolchain.watcom", {override = true})
+    -- Microsoft Embedded Visual C++ 3.0 via wibo (Windows CE)
+    elseif is_plat("wince") then
+        add_rules("recudo.toolchain.evc3", {override = true})
+        -- For console apps using standard main() instead of GUI WinMain():
+        -- set_values("recudo.toolchain.evc3.entry", "mainACRTStartup")
+    end
+```
+*(Standard platforms like `amiga`, `atari`, `kolibri`, `freebsd`, `openbsd`, `netbsd`, `dragonflybsd`, and `linux` use native GCC/Clang toolchains automatically with standard Xmake C/C++ build graphs).*
+
+> [!NOTE]
+> **Windows CE Entry Point:** By default, executables built with `recudo.toolchain.evc3` target the CE graphical subsystem and use `/entry:WinMainCRTStartup` (which invokes `WinMain`). If you are compiling a console / CLI application with a standard `main()`, set the entry point to `mainACRTStartup`:
+> ```lua
+> set_values("recudo.toolchain.evc3.entry", "mainACRTStartup")
+> -- or: add_ldflags("/entry:mainACRTStartup")
+> ```
+
+### Cross-Platform SDK Detection
+
+Automatic resolution across Unix (`~/.local/opt/<sdk>`) and Windows (`%APPDATA%`, `%LOCALAPPDATA%`). Run `xmake recudo list` at any time to audit the whole matrix.
 
 ---
 
