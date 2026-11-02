@@ -37,8 +37,12 @@ function main(T)
             local envs = watcom.get_env(fake_sdk, "dos32a")
             T.assert_equal(envs.WATCOM, fake_sdk)
             T.assert_equal(envs.EDPATH, path.join(fake_sdk, "eddat"))
-            T.assert_true(envs.PATH:find(fake_bin) ~= nil, "PATH should contain resolved bindir")
-            T.assert_true(envs.INCLUDE:find(fake_h) ~= nil, "INCLUDE should contain base header dir")
+            -- PATH must contain the bindir find_bindir resolves (binl64/binl/binnt64/binnt
+            -- depending on host platform and pre-existing mock SDK leftovers in tmpdir)
+            local bindir = watcom.find_bindir(fake_sdk)
+            T.assert_not_nil(bindir, "find_bindir should resolve a bindir for the mock SDK")
+            T.assert_true(envs.PATH:find(bindir, 1, true) ~= nil, "PATH should contain resolved bindir")
+            T.assert_true(envs.INCLUDE:find(fake_h, 1, true) ~= nil, "INCLUDE should contain base header dir")
 
             os.rm(fake_sdk)
         end
