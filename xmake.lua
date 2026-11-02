@@ -3,7 +3,7 @@
 -- Mozilla Public License Version 2.0
 
 set_project("recudo")
-set_version("0.1.3")
+set_version("0.2.0")
 set_xmakever("2.8.5")
 
 includes("includes/recudo.lua")
