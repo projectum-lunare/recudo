@@ -58,8 +58,9 @@ local platforms = {
         archs = {"m68k", "m68000", "m68020", "m68030", "m68040", "m68060"},
         hosts = host_list(),
         toolchain = "amigaos",
-        sdk_name = "amigaos-sdk",
-        sdk_env = "AMIGA_SDK",
+        sdk_name = "amigaos-gcc",
+        sdk_env = "AMIGAOS_GCC",
+        sdk_alt = {name = "amigaos-sdk", env = "AMIGA_SDK"},
         check_file = "bin/m68k-amigaos-gcc",
         formats = vintage_formats("$(name)"),
         static_only = true,
@@ -79,16 +80,21 @@ local platforms = {
         archs = {"m68k", "m68000", "m68020", "m68030", "m68040", "m68060"},
         hosts = host_list(),
         toolchain = "atarist",
-        sdk_name = "atarist-sdk",
-        sdk_env = "ATARIST_SDK",
-        check_file = "bin/m68k-atari-mint-gcc",
+        -- two real toolchains exist for this target: the modern mintelf (ELF
+        -- objects, PRG/ELF output, GDB, C++13) and the classic mint (a.out,
+        -- TOS, MonST2 symbols). Mintelf is the default; set ATARIST_SDK to a
+        -- classic install to use that instead.
+        sdk_name = "atarist-mintelf",
+        sdk_env = "ATARIST_MINTELF",
+        sdk_alt = {name = "atarist-mint", env = "ATARIST_SDK"},
+        check_file = "bin/m68k-atari-mintelf-gcc",
         formats = vintage_formats("$(name).tos"),
         static_only = true,
         probe = "sdk",
         gcc = {
             homepage = "http://vincent.riviere.free.fr/soft/m68k-atari-mint/",
             description = "Atari ST m68k FreeMiNT GCC Cross-Compiler SDK",
-            prefix = "m68k-atari-mint-",
+            prefix = "m68k-atari-mintelf-",
             tail_flags = {"-msoft-float"}
         }
     },

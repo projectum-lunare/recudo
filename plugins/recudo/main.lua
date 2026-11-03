@@ -89,7 +89,17 @@ local probes = {
         return bsd.is_available(t.id, target_arch)
     end,
     sdk = function (t)
-        return sdk.exists(t.sdk_name, t.sdk_env, {check_file = t.check_file})
+        if sdk.exists(t.sdk_name, t.sdk_env, {check_file = t.check_file}) then
+            return true
+        end
+        -- targets with two real toolchains declare a fallback (e.g. atari:
+        -- mintelf by default, classic mint via ATARIST_SDK)
+        local alt = t.sdk_alt
+        if alt and alt.name then
+            local alt_check = "bin/" .. (alt.name:gsub("atarist%-", "m68k-atari-")) .. "-gcc"
+            return sdk.exists(alt.name, alt.env, {check_file = alt_check})
+        end
+        return false
     end
 }
 
@@ -135,6 +145,12 @@ end
 
 local function sdk_location(t, _, available)
     local found = sdk.find(t.sdk_name, t.sdk_env, {must_exist = true})
+    if not found and t.sdk_alt then
+        local alt_dir = sdk.find(t.sdk_alt.name, t.sdk_alt.env, {must_exist = true})
+        if alt_dir then
+            return alt_dir .. " (classic mint)"
+        end
+    end
     if available then
         return found
     elseif found and os.isdir(found) then
@@ -232,6 +248,7 @@ local function show_list(opt)
     print("  xmake recudo env --export-env         # generate .env file for IDEs and LuaLS")
     print("  xmake recudo repl [-r luajit]         # launch interactive REPL with project environment")
     print("  xmake recudo create <name> [-t app]   # create a new project from template (app, module, cmodule, love, amulet, love-compat, amulet-compat)")
+    print("  xmake recudo tool install <sdk>       # provision an SDK/toolchain (amigaos-gcc, watcom, wibo, evc3; --all, -f, --edition=NAME)")
 end
 
 local function show_env(env_opts)
@@ -471,12 +488,128 @@ local function flag_enabled(args, option_names, value_names)
     return false
 end
 
+-- Lists the toolchain package recipes available in repository/tools/packages.
+local function tool_recipe_ids(rootdir)
+    local ids = {}
+    for _, dir in ipairs(os.dirs(path.join(rootdir, "repository", "tools", "packages", "*", "*")) or {}) do
+        table.insert(ids, path.basename(dir))
+    end
+    table.sort(ids)
+    return ids
+end
+
+local function run_tool(args, opt)
+    local actions = { install = true, test = true, info = true, list = true, which = true }
+
+    -- the menu value options consume positionals: target <- "tool",
+    -- build_target <- the sub-action (or a tool id), extra_args <- the rest
+    local sub, tool_id = nil, nil
+    if opt and opt.build_target and not tostring(opt.build_target):startswith("-") then
+        if actions[opt.build_target] then
+            sub = opt.build_target
+        else
+            tool_id = opt.build_target
+            sub = "info"
+        end
+    end
+    for _, a in ipairs(table.wrap(option.get("extra_args"))) do
+        if a == "--all" then
+            -- handled by the branch below
+        elseif not a:startswith("-") then
+            if not sub and actions[a] then
+                sub = a
+            elseif not tool_id then
+                tool_id = a
+            end
+        end
+    end
+    if not sub then
+        for _, a in ipairs(args) do
+            if a ~= "tool" and actions[a] then
+                sub = a
+                break
+            end
+        end
+    end
+    if not sub or not actions[sub] then
+        raise("Usage: xmake recudo tool <install|test|info|list|which> [toolchain] [--all]")
+    end
+
+    local tools = tool_recipe_ids(rootdir)
+
+    if sub == "list" then
+        cprint("${bright magenta}==> [recudo tool] Toolchain packages:${clear}")
+        for _, id in ipairs(tools) do
+            local recipe = path.join(rootdir, "repository", "tools", "packages", id:sub(1, 1), id, "xmake.lua")
+            local body = os.isfile(recipe) and (io.readfile(recipe) or "") or ""
+            local version = body:match('add_versions%("([^":]+)"')
+                or body:match('add_versions%("[^:]+:([^"]+)"') or "-"
+            local home = os.getenv("HOME") or ""
+            local appdata = os.getenv("APPDATA")
+            local installed = os.isdir(path.join(appdata or path.join(home, ".local/opt"), id))
+            cprint("  %-16s %-12s %s", id, version,
+                installed and "${bright green}installed${clear}" or "${dim}not installed${clear}")
+        end
+        return
+    end
+
+    local function run_one(id)
+        local recipe = path.join(rootdir, "repository", "tools", "packages", id:sub(1, 1), id, "xmake.lua")
+        if not os.isfile(recipe) then
+            cprint("${bright red}==> [recudo tool] unknown toolchain '%s'${clear}", id)
+            cprint("${dim}    available: %s${clear}", table.concat(tools, ", "))
+            return false
+        end
+
+        if sub == "install" then
+            cprint("${bright yellow}==> [recudo tool] installing %s${clear}", id)
+            os.execv("xmake", {"require", "-y", id})
+            return true
+        elseif sub == "test" then
+            cprint("  %-16s ${dim}(run 'xmake require -y %s' to build and verify)${clear}", id, id)
+            return true
+        elseif sub == "info" then
+            cprint("${bright cyan}==> [recudo tool] %s${clear}", id)
+            print(io.readfile(recipe))
+            return true
+        elseif sub == "which" then
+            local home = os.getenv("HOME") or ""
+            local appdata = os.getenv("APPDATA")
+            print(path.join(appdata or path.join(home, ".local/opt"), id))
+            return true
+        end
+    end
+
+    local failed = 0
+    local all = option.get("all") or false
+    for _, a in ipairs(table.wrap(option.get("extra_args"))) do
+        if a == "--all" then all = true end
+    end
+    if all then
+        for _, id in ipairs(tools) do
+            if not run_one(id) then
+                failed = failed + 1
+            end
+        end
+    else
+        if not tool_id then
+            raise("Please specify a toolchain (%s) or use --all", table.concat(tools, ", "))
+        end
+        if not run_one(tool_id) then
+            failed = 1
+        end
+    end
+    if failed > 0 then
+        raise("recudo tool %s: %d failure(s)", sub, failed)
+    end
+end
+
 function main(...)
     local args = {...}
     local target_name = option.get("target") or "list"
 
     for _, arg in ipairs(args) do
-        if arg == "list" or arg == "env" or arg == "repl" or arg == "create" or arg == "all" or targets[arg] then
+        if arg == "list" or arg == "env" or arg == "repl" or arg == "create" or arg == "tool" or arg == "all" or targets[arg] then
             target_name = arg
         end
     end
@@ -592,6 +725,8 @@ function main(...)
             end
         end
         create_project(proj_name, tmpl_choice)
+    elseif target_name == "tool" then
+        run_tool(args, opt)
     elseif target_name == "all" then
         local results = {}
         local all_opt = table.clone(opt)
