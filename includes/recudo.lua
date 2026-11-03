@@ -20,6 +20,7 @@ _dismiss()
 -- Register platform definitions, addon modules and the local Lua package repository
 add_platformdirs(path.join(rootdir, "platforms"))
 add_moduledirs(path.join(rootdir, "modules"))
+add_moduledirs(path.join(rootdir, "repository/tools/modules"))
 
 -- One link mode for the whole graph. `xmake f --kind=shared` builds shared
 -- libraries. `xmake f --kind=static` (the default) builds archives. Platforms
@@ -40,6 +41,11 @@ includes(path.join(rootdir, "plugins/*/xmake.lua"))
 -- Packages are installed before target on_load, so the repository has to be
 -- registered while the project script is still loading. on_load refreshes it
 -- for the next configure.
+-- Toolchain packages (recudo-tools): the xmake-native provisioning channel
+if getenv("RECUDO_LUA_PROJECT") ~= "1" and os.isdir(path.join(rootdir, "repository", "tools")) then
+    add_repositories("recudo-tools repository/tools", {rootdir = rootdir})
+end
+
 if getenv("RECUDO_LUA_PROJECT") ~= "1" and os.isdir(path.join(rootdir, "repository", "repo")) then
     add_repositories("recudo-lua repository/repo", {rootdir = rootdir})
 end
