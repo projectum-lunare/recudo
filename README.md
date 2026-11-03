@@ -387,8 +387,8 @@ The pipeline above needs somewhere to strike. Recudo declares formal platforms a
 
 | Platform            | Target OS           | Default Arch         | Supported Architectures (Xmake Normalized)                                                                         | Toolchain   | Toolset / Compiler                              | SDK Fallback                 |
 | :------------------ | :------------------ | :------------------- | :----------------------------------------------------------------------------------------------------------------- | :---------- | :---------------------------------------------- | :--------------------------- |
-| **`amiga`**         | AmigaOS Classic     | `m68k`               | `m68k`                                                                                                             | `amigaos`   | Bebbo GCC (`m68k-amigaos-gcc`)                  | `~/.local/opt/amigaos-sdk`   |
-| **`atari`**         | Atari ST / FreeMiNT | `m68k`               | `m68k`                                                                                                             | `atarist`   | FreeMiNT GCC (`m68k-atari-mint-gcc`)            | `~/.local/opt/atarist-sdk`   |
+| **`amiga`**         | AmigaOS Classic     | `m68k`               | `m68k`                                                                                                             | `amigaos`   | Bebbo GCC (`m68k-amigaos-gcc`)                  | `~/.local/opt/amigaos-gcc`   |
+| **`atari`**         | Atari ST / FreeMiNT | `m68k`               | `m68k`                                                                                                             | `atarist`   | MiNT ELF GCC 13 (`m68k-atari-mintelf-gcc`; classic mint via `ATARIST_SDK`) | `~/.local/opt/atarist-mintelf` |
 | **`kolibri`**       | KolibriOS           | `i386`               | `i386`                                                                                                             | `kolibrios` | KolibriOS GCC (`kos32-gcc`)                     | `~/.local/opt/kolibrios-sdk` |
 | **`dos`**           | MS-DOS 32-bit       | `i386`               | `i386`                                                                                                             | `watcom`    | Open Watcom v2 (`owcc -b dos32a`)               | `~/.local/opt/watcom`        |
 | **`os2`**           | OS/2 32-bit Warp    | `i386`               | `i386`                                                                                                             | `watcom`    | Open Watcom v2 (`owcc -b os2v2`)                | `~/.local/opt/watcom`        |
@@ -419,6 +419,63 @@ Standard Xmake merges all BSD distributions into a single generic `bsd` platform
   - `riscv` &rarr; `riscv32`, `riscv64` | `sparc` &rarr; `sparc`, `sparc64` | `vax` &rarr; `vax` | `hppa` &rarr; `hppa`
   - `sh3 (sh3eb / sh3el)` &rarr; `sh3`, `sh3eb`, `sh3el`
 
+### Atari Rule (`recudo.toolchain.atarist`)
+
+Two real toolchains exist for the Atari ST, and both are installable:
+
+| Variant | Compiler | Objects | Symbols | Debugger |
+| :--- | :--- | :--- | :--- | :--- |
+| `mintelf` (default) | GCC 13.3.0 | ELF | no underscore | GDB |
+| `mint` | GCC 4.6.4 | a.out | leading underscore | MonST2 |
+
+The rule selects the variant per target, so legacy and modern code can live in
+one project:
+
+```lua
+target("modern")
+    add_rules("recudo.toolchain.atarist")                    -- mintelf
+
+target("legacy")
+    add_rules("recudo.toolchain.atarist")
+    set_values("recudo.toolchain.atarist.variant", "mint")   -- classic
+    set_values("recudo.toolchain.atarist.cpu", "68020")      -- default: 68000
+```
+
+Install whichever you need: `xmake recudo tool install atarist-mintelf` and/or
+`xmake recudo tool install atarist-mint`. The classic variant links with
+`-Wl,--traditional-format` so MonST2 and other period debuggers can read the
+symbols.
+
+### vbcc Rule (`recudo.toolchain.vbcc`)
+
+[vbcc](http://www.compilers.de/vbcc.html) is a portable ISO C compiler whose one
+driver covers every backend it ships, selected per target with a `+name` flag.
+It is the alternative to the GCC toolchains for AmigaOS and Atari, and the only
+compiler Recudo has for the 8-bit targets:
+
+```lua
+target("hello_c64")
+    add_rules("recudo.toolchain.vbcc")
+    set_values("recudo.toolchain.vbcc.target", "c64")   -- default: aos68k
+    add_files("src/*.c")
+```
+
+| `target` value | Output |
+| :--- | :--- |
+| `c64`, `c128`, `pet`, `x16`, `m65` | Commodore 8-bit program |
+| `nes` | NES ROM (iNES) |
+| `atari` | Atari 8-bit program |
+| `bbc` | BBC Micro program |
+| `aos68k`, `kick13` | AmigaOS loadseg()ble executable |
+| `tos`, `mint` | Atari ST executable |
+| `jaguar` | Atari Jaguar executable |
+| `aosppc`, `morphos`, `warpos` | PowerPC Amiga executable |
+
+Install it first with `xmake recudo tool install vbcc`. vbcc produces far
+smaller binaries than GCC because its libc is minimal: a bare `main()` is
+252 bytes for the C64 and 1.2 KB for AmigaOS, against ~130 KB from a GCC
+toolchain.
+
 ### Vintage Compiler Rules (`recudo.toolchain.watcom` & `recudo.toolchain.evc3`)
 
 For vintage targets with specialized proprietary toolchains, attach the native compilation rules:
@@ -445,6 +502,30 @@ target("my_retro_app")
 > set_values("recudo.toolchain.evc3.entry", "mainACRTStartup")
 > -- or: add_ldflags("/entry:mainACRTStartup")
 > ```
+
+### Provisioning SDKs (`xmake recudo tool`)
+
+SDKs are provisioned as pure data: every tool is a declarative spec (sources
+pinned by sha256, editions, env map, smoke test) ported from dotstar's
+toolchain orchestrator. Provisioning lands exactly where detection looks
+(`~/.local/opt/<sdk>` on Unix, `%APPDATA%\<sdk>` on Windows), so
+`xmake recudo list` flips from `✗ Miss` to `✓ Ready` without manual steps:
+
+```bash
+xmake recudo tool list                      # registered tools and install status
+xmake recudo tool install amigaos-gcc       # download, verify sha256, extract, probe
+xmake recudo tool install --all             # provision every registered tool
+xmake recudo tool test watcom               # smoke test (compiler banners, -dumpversion...)
+xmake recudo tool test --all
+xmake recudo tool info evc3                 # editions, binaries and paths
+xmake recudo tool which amigaos-sdk m68k-amigaos-gcc
+```
+
+`evc3` requires an edition (`--edition=arm|mips|sh3|sh4|x86|ppc`) and pulls its
+runner dependency (`wibo`) automatically; the eVC 3.0 media comes from the
+Internet Archive and the ISO trees are lowercased on extraction so Unix
+toolchains and `#include` directives resolve. `install --all` followed by
+`test --all` is also the CI recipe for validating the matrix against real SDKs.
 
 ### Cross-Platform SDK Detection
 
