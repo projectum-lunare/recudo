@@ -24,7 +24,7 @@ When retro computing comes up, you think C and assembly. Rarely Lua. Yet Lua is 
 - **A complete Lua pipeline** — modules, native C extensions, app launchers, monolithic bundles, isolated environments — a LuaRocks alternative that lives inside the build graph.
 - **Vintage toolchains as first-class citizens** — Open Watcom v2, MS eVC 3.0, Bebbo GCC, FreeMiNT GCC, Kos32 GCC — executed as native Xmake rules, with no brittle shell or Python wrapper scripts.
 - **Formal custom platforms** — `amiga`, `atari`, `kolibri`, `dos`, `os2`, `wince`, plus first-class `freebsd`, `openbsd`, `netbsd` and `dragonflybsd`.
-- **Beyond plain Lua** — LÖVE 2D and Amulet game packaging, Teal static typing, Nelua systems code, Haxe multi-backend compilation, and Fennel/MoonScript/YueScript transpilers, all flowing through the same pipeline.
+- **Beyond plain Lua** — LÖVE 2D and Amulet game packaging, Teal static typing, Nelua systems code, Haxe multi-backend compilation, and a full compile-to-Lua transpiler suite (Erde, Pallene, Pluto, Fennel, MoonScript, YueScript, TypeScriptToLua, CSharp.lua, PureScript), all flowing through the same pipeline.
 - **Matrix orchestration** — `xmake recudo` to audit, cross-compile and benchmark across every target.
 
 *recudo* — Latin, *recudere*: *to strike anew; to re-forge; to re-mint*. The name is the job, twice over: re-striking one source through every die in the matrix — and re-forging the Lua ecosystem itself, where rockspecs give way to ordinary xmake recipes, folders of scripts give way to single executables, and the map of destinations grows to machines the ecosystem never shipped to.
@@ -410,6 +410,58 @@ target("my_yue_app")
     add_rules("recudo.lua.app", "recudo.lang.yuescript")
     add_files("src/**.yue")
     set_values("recudo.lang.yuescript.target", "5.1") -- target Lua 5.1/LuaJIT ABI
+```
+
+#### Erde (`recudo.lang.erde`)
+Compile [Erde](https://erde-lang.github.io) (`.erde`), an ergonomic, modern language transpiling to Lua:
+```lua
+target("my_erde_app")
+    add_rules("recudo.lua.app", "recudo.lang.erde")
+    add_files("src/**.erde")
+    set_values("recudo.lang.erde.target", "5.4") -- target Lua version (5.1, 5.2, 5.3, 5.4, jit)
+```
+
+#### Pallene (`recudo.lang.pallene`)
+Compile [Pallene](https://github.com/pallene-lang/pallene) (`.pln`), a statically-typed sister language to Lua designed for high performance:
+```lua
+target("my_pallene_mod")
+    add_rules("recudo.lua.module", "recudo.lang.pallene")
+    add_files("src/**.pln")
+    set_values("recudo.lang.pallene.emit", "lua") -- "lua" (strips types) or "c" (compiled native module)
+```
+
+#### Pluto (`recudo.lang.pluto`)
+Compile [Pluto](https://pluto-lang.org) (`.pluto`), a modern superset of Lua 5.5:
+```lua
+target("my_pluto_app")
+    add_rules("recudo.lua.app", "recudo.lang.pluto")
+    add_files("src/**.pluto")
+    set_values("recudo.lang.pluto.compatibility", true) -- enable compatibility mode
+```
+
+#### TypeScriptToLua (`recudo.lang.typescript`)
+Transpile TypeScript (`.ts`) directly into Lua using [TypeScriptToLua](https://typescripttolua.github.io/):
+```lua
+target("my_ts_app")
+    add_rules("recudo.lua.app", "recudo.lang.typescript")
+    add_files("src/**.ts")
+    set_values("recudo.lang.typescript.target", "5.4") -- target Lua version (5.1, 5.2, 5.3, 5.4, JIT)
+```
+
+#### CSharp.lua (`recudo.lang.csharp`)
+Compile C# (`.cs`) to Lua using [CSharp.lua](https://github.com/yanghuan/CSharp.lua):
+```lua
+target("my_csharp_app")
+    add_rules("recudo.lua.app", "recudo.lang.csharp")
+    add_files("src/**.cs")
+```
+
+#### PureScript (`recudo.lang.purescript`)
+Compile strongly-typed functional [PureScript](https://www.purescript.org/) (`.purs`) modules:
+```lua
+target("my_purs_app")
+    add_rules("recudo.lua.app", "recudo.lang.purescript")
+    add_files("src/**.purs")
 ```
 
 ---
