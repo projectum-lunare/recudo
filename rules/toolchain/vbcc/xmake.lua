@@ -104,6 +104,27 @@ local function setup_vbcc_rule(rule_name)
             for _, obj in ipairs(objs) do
                 table.insert(argv, path.absolute(obj))
             end
+
+            -- AmigaOS links only -lvc by default, and that is enough for
+            -- integer-only programs (verified: they link clean without any
+            -- math lib). Programs that use floating point pick the math
+            -- library explicitly, because the need is theirs, not the rule's:
+            --
+            --   target("lualib")
+            --       add_rules("recudo.toolchain.vbcc")
+            --       set_values("recudo.toolchain.vbcc.math", "msoft")
+            --
+            -- The value maps 1:1 to the vbcc lib families (msoft = software
+            -- float, mieee = MathIEEEDoubBas.library, m881/m040 = hardware
+            -- FPU). For the aos68k config, which compiles with
+            -- -amiga-softfloat, msoft is the verified pairing: lua fails to
+            -- link with undefined _floor/_pow/_MathIeeeDoubBasBase without
+            -- it.
+            local mathlib = target:values("recudo.toolchain.vbcc.math")
+            if mathlib and mathlib ~= "none" then
+                table.insert(argv, "-l" .. mathlib)
+            end
+
             table.insert(argv, "-o")
             table.insert(argv, path.absolute(targetfile))
 
