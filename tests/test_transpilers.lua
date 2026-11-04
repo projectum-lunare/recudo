@@ -10,7 +10,7 @@ function main(T)
         func = function ()
             local content_xmake = io.readfile(path.join(os.projectdir(), "rules/lang/fennel/xmake.lua"))
             T.assert_not_nil(content_xmake)
-            T.assert_true(content_xmake:find('setup_fennel_rule%("recudo%.lang%.fennel"%)') ~= nil)
+            T.assert_true(content_xmake:find('rule%("recudo%.lang%.fennel"%)') ~= nil)
             T.assert_true(content_xmake:find('set_extensions%("%.fnl"%)') ~= nil)
         end
     })
@@ -20,7 +20,7 @@ function main(T)
         func = function ()
             local content_xmake = io.readfile(path.join(os.projectdir(), "rules/lang/moonscript/xmake.lua"))
             T.assert_not_nil(content_xmake)
-            T.assert_true(content_xmake:find('setup_moonscript_rule%("recudo%.lang%.moonscript"%)') ~= nil)
+            T.assert_true(content_xmake:find('rule%("recudo%.lang%.moonscript"%)') ~= nil)
             T.assert_true(content_xmake:find('set_extensions%("%.moon"%)') ~= nil)
         end
     })
@@ -30,8 +30,24 @@ function main(T)
         func = function ()
             local content_xmake = io.readfile(path.join(os.projectdir(), "rules/lang/yuescript/xmake.lua"))
             T.assert_not_nil(content_xmake)
-            T.assert_true(content_xmake:find('setup_yuescript_rule%("recudo%.lang%.yuescript"%)') ~= nil)
+            T.assert_true(content_xmake:find('rule%("recudo%.lang%.yuescript"%)') ~= nil)
             T.assert_true(content_xmake:find('set_extensions%("%.yue"%)') ~= nil)
+        end
+    })
+
+    table.insert(tests, {
+        name = "haxe rule files exist and define expected rule names and extensions",
+        func = function ()
+            local content_xmake = io.readfile(path.join(os.projectdir(), "rules/lang/haxe/xmake.lua"))
+            T.assert_not_nil(content_xmake)
+            T.assert_true(content_xmake:find('rule%("recudo%.lang%.haxe"%)') ~= nil)
+            T.assert_true(content_xmake:find('set_extensions%(') ~= nil)
+            local haxe_mod = io.readfile(path.join(os.projectdir(), "modules/lang/haxe.lua"))
+            T.assert_not_nil(haxe_mod)
+            T.assert_true(haxe_mod:find("find_program") ~= nil)
+            T.assert_true(haxe_mod:find("build_argv") ~= nil)
+            T.assert_true(haxe_mod:find("backend") ~= nil)
+            T.assert_true(haxe_mod:find("no%-compilation") ~= nil)
         end
     })
 

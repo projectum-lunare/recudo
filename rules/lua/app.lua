@@ -43,6 +43,7 @@ local function setup_app_rule(rule_name)
         on_load(function (target)
             import("lua.env")
 
+            target:data_set("recudo.lua.is_app", true)
             local is_bundle = target:values("recudo.lua.bundle")
             if not is_bundle then
                 target:set("kind", "phony")
@@ -61,6 +62,10 @@ local function setup_app_rule(rule_name)
                     local files = table.wrap(target:get("files"))
                     if #files > 0 then
                         entry = files[1]
+                        if not entry:endswith(".lua") then
+                            local base_name = target:basename() or target:name() or "main"
+                            entry = "build/lua/" .. base_name .. ".lua"
+                        end
                     end
                 end
             end

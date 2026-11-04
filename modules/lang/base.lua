@@ -146,7 +146,12 @@ end
 
 -- Build runtime environment with package and dependencies paths
 function search_envs(package)
-    local is_win = package:is_plat("windows", "mingw")
+    local is_win = (package and package.is_plat and package:is_plat("windows", "mingw"))
+        or (package and package.plat and (package:plat() == "windows" or package:plat() == "mingw"))
+        or is_host("windows")
+    local is_macos = (package and package.is_plat and package:is_plat("macosx"))
+        or (package and package.plat and package:plat() == "macosx")
+        or is_host("macosx")
     local ext = is_win and ".dll" or ".so"
     local lua_paths = {}
     local lua_cpaths = {}
@@ -155,6 +160,7 @@ function search_envs(package)
     local search = tree.module_search_envs(ext)
 
     local function add_package_paths(pkg)
+        if not pkg then return end
         local dir = pkg.installdir and pkg:installdir()
         if dir and os.isdir(dir) then
             local note = path.join(dir, "share/recudo/lua-search.lua")
@@ -182,9 +188,19 @@ function search_envs(package)
     end
 
     add_package_paths(package)
-    if package.orderdeps then
+    if package and package.orderdeps then
         for _, dep in ipairs(table.wrap(package:orderdeps())) do
             add_package_paths(dep)
+        end
+    end
+    if package and package.pkgs then
+        for _, pkg in pairs(package:pkgs()) do
+            add_package_paths(pkg)
+            if pkg.orderdeps then
+                for _, dep in ipairs(table.wrap(pkg:orderdeps())) do
+                    add_package_paths(dep)
+                end
+            end
         end
     end
 
@@ -217,7 +233,7 @@ function search_envs(package)
     }
 
     local sep = is_win and ";" or ":"
-    local ld_var = is_win and "PATH" or (package:is_plat("macosx") and "DYLD_LIBRARY_PATH" or "LD_LIBRARY_PATH")
+    local ld_var = is_win and "PATH" or (is_macos and "DYLD_LIBRARY_PATH" or "LD_LIBRARY_PATH")
     local cur_ld = os.getenv(ld_var)
     if #ld_paths > 0 then
         local ld_val = table.concat(ld_paths, sep)
@@ -227,13 +243,34 @@ function search_envs(package)
         envs[ld_var] = ld_val
     end
 
-    local bindir = package.installdir and package:installdir("bin")
-    if bindir and os.isdir(bindir) then
-        local cur_path = envs.PATH or os.getenv("PATH")
-        if cur_path and cur_path ~= "" then
-            envs.PATH = bindir .. path.envsep() .. cur_path
-        else
-            envs.PATH = bindir
+    local function add_bindir(pkg)
+        local bindir = pkg and pkg.installdir and pkg:installdir("bin")
+        if bindir and os.isdir(bindir) then
+            local cur_path = envs.PATH or os.getenv("PATH")
+            if cur_path and cur_path ~= "" then
+                if not cur_path:find(bindir, 1, true) then
+                    envs.PATH = bindir .. path.envsep() .. cur_path
+                end
+            else
+                envs.PATH = bindir
+            end
+        end
+    end
+
+    add_bindir(package)
+    if package and package.orderdeps then
+        for _, dep in ipairs(table.wrap(package:orderdeps())) do
+            add_bindir(dep)
+        end
+    end
+    if package and package.pkgs then
+        for _, pkg in pairs(package:pkgs()) do
+            add_bindir(pkg)
+            if pkg.orderdeps then
+                for _, dep in ipairs(table.wrap(pkg:orderdeps())) do
+                    add_bindir(dep)
+                end
+            end
         end
     end
 
@@ -293,7 +330,7 @@ function outdir(target, lang_name)
             or target:data("recudo.lua.is_app")
             or target:data("recudo.engine.love")
             or target:data("recudo.engine.amulet")
-            or (target.rule and (target:rule("recudo.engine.love") or target:rule("recudo.engine.amulet"))) then
+            or (target.rule and (target:rule("recudo.engine.love") or target:rule("recudo.engine.amulet") or target:rule("recudo.lua.app") or target:rule("recudo.lua.module"))) then
             dir = path.join(os.projectdir(), "build/lua")
         else
             dir = path.join(target:autogendir(), "rules", lang_name)
@@ -336,11 +373,44 @@ function build_transpiled(target, batchcmds, sourcefile, opt, spec)
     if spec.stdout then
         vrun_opt.stdout = outfile
     end
+    if spec.envs then
+        vrun_opt.envs = spec.envs
+    end
 
     batchcmds:show_progress(opt.progress, "${color.build.target}transpiling." .. lang .. " %s", sourcefile)
     batchcmds:mkdir(path.directory(outfile))
     batchcmds:vrunv(spec.program, argv, vrun_opt)
     batchcmds:add_depfiles(sourcefile)
+    batchcmds:set_depmtime(os.mtime(outfile))
+    batchcmds:set_depcache(target:dependfile(outfile))
+end
+
+-- Helper for before_buildcmd_files in batch transpiler rules (e.g. Haxe)
+function build_transpiled_batch(target, batchcmds, sourcebatch, opt, spec)
+    local lang = spec.lang
+    local outfile = spec.outfile
+    if not outfile then
+        local out_dir = outdir(target, lang)
+        local base_name = target:basename() or target:name() or "main"
+        outfile = path.join(out_dir, base_name .. ".lua")
+    end
+
+    local argv
+    if type(spec.argv) == "function" then
+        argv = spec.argv(outfile)
+    else
+        argv = spec.argv or {}
+    end
+
+    local vrun_opt = spec.vrun_opt or {}
+    if spec.envs then
+        vrun_opt.envs = spec.envs
+    end
+
+    batchcmds:show_progress(opt.progress, "${color.build.target}compiling." .. lang .. " %s", target:name())
+    batchcmds:mkdir(path.directory(outfile))
+    batchcmds:vrunv(spec.program, argv, vrun_opt)
+    batchcmds:add_depfiles(sourcebatch.sourcefiles)
     batchcmds:set_depmtime(os.mtime(outfile))
     batchcmds:set_depcache(target:dependfile(outfile))
 end
@@ -386,6 +456,8 @@ function install_transpiled(target, src_ext, lang_name)
 
     local out_dir = outdir(target, lang_name)
     local esc_ext = src_ext:gsub("%.", "%%.")
+    local installed = {}
+
     for _, src in ipairs(table.wrap(target:sourcefiles())) do
         if src:endswith(src_ext) then
             local relpath = env.get_relative_path(target, src)
@@ -394,7 +466,8 @@ function install_transpiled(target, src_ext, lang_name)
             if not os.isfile(gen_file) then
                 gen_file = path.join(target:autogendir(), "rules", lang_name, lua_rel)
             end
-            if os.isfile(gen_file) then
+            if os.isfile(gen_file) and not installed[gen_file] then
+                installed[gen_file] = true
                 local dst_share = path.join(installdir, "share/lua", lua_rel)
                 local dst_lib = path.join(installdir, "lib", lua_rel)
                 os.mkdir(path.directory(dst_share))
@@ -402,6 +475,24 @@ function install_transpiled(target, src_ext, lang_name)
                 os.cp(gen_file, dst_share)
                 os.cp(gen_file, dst_lib)
             end
+        end
+    end
+
+    -- Also check default target outfile (e.g. for batch compilers like haxe)
+    local base_name = target:basename() or target:name() or "main"
+    for _, fname in ipairs({base_name .. ".lua", "main.lua"}) do
+        local gen_file = path.join(out_dir, fname)
+        if not os.isfile(gen_file) then
+            gen_file = path.join(target:autogendir(), "rules", lang_name, fname)
+        end
+        if os.isfile(gen_file) and not installed[gen_file] then
+            installed[gen_file] = true
+            local dst_share = path.join(installdir, "share/lua", fname)
+            local dst_lib = path.join(installdir, "lib", fname)
+            os.mkdir(path.directory(dst_share))
+            os.mkdir(path.directory(dst_lib))
+            os.cp(gen_file, dst_share)
+            os.cp(gen_file, dst_lib)
         end
     end
 end

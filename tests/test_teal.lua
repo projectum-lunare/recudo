@@ -10,7 +10,7 @@ function main(T)
         func = function ()
             local content_xmake = io.readfile(path.join(os.projectdir(), "rules/lang/teal/xmake.lua"))
             T.assert_not_nil(content_xmake)
-            T.assert_true(content_xmake:find('setup_teal_rule%("recudo%.lang%.teal"%)') ~= nil)
+            T.assert_true(content_xmake:find('rule%("recudo%.lang%.teal"%)') ~= nil)
             T.assert_true(content_xmake:find('set_extensions%("%.tl"%)') ~= nil)
         end
     })
