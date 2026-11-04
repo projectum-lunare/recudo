@@ -34,25 +34,21 @@ local TARGETS = {
     ["warpos"]  = {arch = "ppc"},
 }
 
-local function vbcc_root()
-    import("modules.sdk", {rootdir = os.scriptdir() .. "/.."})
-    local dir = sdk.find("vbcc", "VBCC", {must_exist = true})
-    return dir
-end
-
 toolchain("vbcc")
     set_kind("standalone")
     set_homepage("http://www.compilers.de/vbcc.html")
     set_description("vbcc portable ISO C compiler (m68k, PPC, 6502: Amiga, Atari, C64, NES, Jaguar and more)")
 
+    -- on_check runs outside the sandboxed import scope, so the SDK check
+    -- goes straight to the environment instead of importing modules.sdk
     on_check(function (toolchain)
-        local dir = vbcc_root()
-        return dir ~= nil and os.isfile(path.join(dir, "bin", "vc"))
+        local dir = os.getenv("VBCC")
+        return dir ~= nil and dir ~= "" and os.isfile(path.join(dir, "bin", "vc"))
     end)
 
     on_load(function (toolchain)
-        local root = vbcc_root()
-        if not root then
+        local root = os.getenv("VBCC")
+        if not root or root == "" or not os.isdir(root) then
             raise("vbcc not found. Install it with: xmake recudo tool install vbcc")
         end
 
