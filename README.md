@@ -24,7 +24,7 @@ When retro computing comes up, you think C and assembly. Rarely Lua. Yet Lua is 
 - **A complete Lua pipeline** — modules, native C extensions, app launchers, monolithic bundles, isolated environments — a LuaRocks alternative that lives inside the build graph.
 - **Vintage toolchains as first-class citizens** — Open Watcom v2, MS eVC 3.0, Bebbo GCC, FreeMiNT GCC, Kos32 GCC — executed as native Xmake rules, with no brittle shell or Python wrapper scripts.
 - **Formal custom platforms** — `amiga`, `atari`, `kolibri`, `dos`, `os2`, `wince`, plus first-class `freebsd`, `openbsd`, `netbsd` and `dragonflybsd`.
-- **Beyond plain Lua** — LÖVE 2D and Amulet game packaging, Teal static typing, Nelua systems code, and Fennel/MoonScript/YueScript transpilers, all flowing through the same pipeline.
+- **Beyond plain Lua** — LÖVE 2D and Amulet game packaging, Teal static typing, Nelua systems code, Haxe multi-backend compilation, and Fennel/MoonScript/YueScript transpilers, all flowing through the same pipeline.
 - **Matrix orchestration** — `xmake recudo` to audit, cross-compile and benchmark across every target.
 
 *recudo* — Latin, *recudere*: *to strike anew; to re-forge; to re-mint*. The name is the job, twice over: re-striking one source through every die in the matrix — and re-forging the Lua ecosystem itself, where rockspecs give way to ordinary xmake recipes, folders of scripts give way to single executables, and the map of destinations grows to machines the ecosystem never shipped to.
@@ -347,7 +347,42 @@ target("my_systems_app")
   - `set_values("recudo.lang.nelua.defines", {"MY_DEF=1"})`: Pass custom `-D` preprocessor definitions.
   - `set_values("recudo.lang.nelua.pragmas", {"nogc"})`: Set initial Nelua compiler pragmas (`-P`).
 
-### 11. Compile-to-Lua Transpilers (`recudo.lang.*`)
+### 11. Haxe Multi-Target Language Integration (`recudo.lang.haxe`)
+
+Recudo provides first-class, multi-backend support for [Haxe](https://haxe.org/), a high-level, strictly-typed multi-target programming language:
+
+```lua
+-- Native C++ application compiled directly with Xmake's toolchains & linker
+target("my_native_app")
+    set_kind("binary")
+    add_rules("recudo.lang.haxe")
+    add_files("src/NativeMain.hx")
+    set_values("recudo.lang.haxe.backend", "cpp")
+    set_values("recudo.lang.haxe.main", "NativeMain")
+    add_packages("haxe", "hxcpp")
+
+-- Portable Lua application orchestrated through the Recudo Lua runtime
+target("my_lua_app")
+    add_rules("recudo.lua.app", "recudo.lang.haxe")
+    add_files("src/LuaMain.hx")
+    set_values("recudo.lang.haxe.main", "LuaMain")
+    add_packages("haxe")
+```
+
+#### Key Capabilities:
+- **Direct C++ Object Compilation via Xmake:** When targeting the C++ backend (`backend = "cpp"` or inferred for `binary`/`static` targets), Haxe emits intermediate C++ code with `-D no-compilation`. Xmake compiles every generated `.cpp` file with native toolchains, parallel job scheduler, and compiler flags, linking against the pre-compiled `hxcpp` runtime library.
+- **Multi-Backend Output Support:** Supports targeting `cpp` (native executable or static library), `lua` (PUC-Lua 5.1-5.4 or LuaJIT), `js` (JavaScript), `python`, `hl` (HashLink), `jvm`, and `cs` (C#).
+- **Automated Standard Library & haxelib Resolution:** Automatically provisions and points `HAXE_STD_PATH` to the bundled standard library and routes `haxelib` lookups without host dependencies.
+- **Target Options & Flags:**
+  - `set_values("recudo.lang.haxe.backend", "cpp"|"lua"|"js"|"python"|"hl"|"jvm"|"cs")`: Target backend (defaults to `"cpp"` for binary/static targets, `"lua"` for Lua apps/modules).
+  - `set_values("recudo.lang.haxe.main", "MainClassName")`: Entry class name.
+  - `set_values("recudo.lang.haxe.classpaths", {"src", "lib"})`: Add custom `-cp` search paths.
+  - `set_values("recudo.lang.haxe.defines", {"my_flag", "key=val"})`: Add custom `-D` compiler definitions.
+  - `set_values("recudo.lang.haxe.libs", {"simdjson"})`: Pass `-lib <name>` dependencies.
+  - `set_values("recudo.lang.haxe.hxml", "build.hxml")`: Build from an existing `.hxml` specification file.
+  - `set_values("recudo.lang.haxe.lua_version", "5.4"|"5.3"|"5.2"|"5.1")`: Specify target Lua version for Lua backend.
+
+### 12. Compile-to-Lua Transpilers (`recudo.lang.*`)
 
 Recudo provides first-class, seamless Ahead-of-Time (AOT) transpilation for the most popular compile-to-Lua languages. You can mix and match them inside standard Lua apps, modules, LÖVE 2D games, or Amulet projects:
 
