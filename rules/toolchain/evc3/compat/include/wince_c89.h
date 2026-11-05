@@ -6,6 +6,10 @@
 #endif
 
 #include <stddef.h>
+#ifndef _PTRDIFF_T_DEFINED
+#define _PTRDIFF_T_DEFINED
+typedef int ptrdiff_t;
+#endif
 #include <stdarg.h>
 #include <stdio.h>
 

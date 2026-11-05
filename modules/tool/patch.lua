@@ -67,6 +67,12 @@
 -- without one (patch-only) match by their key, following the convention of
 -- naming them after the toolchain/platform they serve.
 local function _package_uses(package, key, conf)
+    if conf.platforms and package:is_plat(table.unpack(table.wrap(conf.platforms))) then
+        return true
+    end
+    if package:config(key) then
+        return true
+    end
     local name = conf.toolchain and conf.toolchain:match("[^%.]+$") or key
     for _, toolchain in ipairs(table.wrap(package:toolchains() or {})) do
         if toolchain:name() == name then

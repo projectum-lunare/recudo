@@ -411,7 +411,7 @@ local function build_target(key, opt)
 
     cprint("${bright yellow}==> [recudo] Configuring target: ${bright cyan}" .. t.name .. "${clear}")
 
-    local config_args = {"f", "-p", t.plat}
+    local config_args = {"f", "-p", t.plat, "-y"}
     if target_arch then
         table.insert(config_args, "-a")
         table.insert(config_args, target_arch)
@@ -444,7 +444,7 @@ local function build_target(key, opt)
 
     local target_desc = opt.build_target and ("target '" .. opt.build_target .. "'") or "default target(s)"
     cprint("${bright yellow}==> [recudo] Building " .. target_desc .. " for ${bright cyan}" .. key .. "${clear}...")
-    local build_args = {"build"}
+    local build_args = {"build", "-y"}
     if opt.verbose then
         table.insert(build_args, "-v")
     end

@@ -2,11 +2,39 @@
 -- Rule: Microsoft Embedded Visual C++ 3.0 via wibo (Windows CE)
 -- Native Xmake batchcmds execution (no external shell/python wrappers)
 
+local function collect_target_values(target, name)
+    local results = {}
+    local values = target:get_from(name, "*")
+    if values then
+        for _, v in ipairs(table.wrap(values)) do
+            if type(v) == "table" then
+                for _, item in ipairs(v) do
+                    table.insert(results, item)
+                end
+            elseif v ~= nil then
+                table.insert(results, v)
+            end
+        end
+    end
+    return results
+end
+
+local function to_wibo_path(p)
+    if p and p:startswith("/") then
+        return "Z:" .. p
+    end
+    return p
+end
+
 local function setup_evc3_rule(rule_name)
     rule(rule_name)
         set_extensions(".c", ".cc", ".cpp", ".cxx")
 
         on_load(function (target)
+            if target:is_static() and not target:get("filename") then
+                target:set("filename", target:basename() .. ".lib")
+            end
+
             local root = path.join(os.scriptdir(), "../../..")
             import("modules.sdk", {rootdir = root})
             local entry = import("catalog", {rootdir = path.join(root, "modules")}).get("wince")
@@ -26,14 +54,16 @@ local function setup_evc3_rule(rule_name)
             target:data_set("evc3.arch", arch)
 
             local compat_mode = target:values("recudo.toolchain.evc3.compat") or target:values("recudo.evc3.compat")
-            if compat_mode == "c89" or compat_mode == "ansi" or compat_mode == true then
+            if compat_mode == "c89" or compat_mode == "ansi" or compat_mode == true or target:rule("recudo.lua.module") then
                 target:data_set("evc3.compat", true)
                 local compat_dir = path.join(os.scriptdir(), "compat")
                 target:data_set("evc3.compat_dir", compat_dir)
                 target:add("includedirs", path.join(compat_dir, "include"), {order = "before"})
-                target:add("files", path.join(compat_dir, "crt.c"))
-                if target:is_binary() and not target:values("recudo.toolchain.evc3.entry") and not target:values("recudo.toolchain.evc3.no_main_bridge") then
-                    target:add("files", path.join(compat_dir, "main_bridge.c"))
+                if target:is_binary() or target:is_shared() then
+                    target:add("files", path.join(compat_dir, "crt.c"))
+                    if target:is_binary() and not target:values("recudo.toolchain.evc3.entry") and not target:values("recudo.toolchain.evc3.no_main_bridge") then
+                        target:add("files", path.join(compat_dir, "main_bridge.c"))
+                    end
                 end
             end
         end)
@@ -74,6 +104,7 @@ local function setup_evc3_rule(rule_name)
 
             local comp_name = "clarm.exe"
             local arch_defs = {"_ARM_", "ARM"}
+            local arch_flags = {}
             if arch == "mips" then
                 comp_name = "clmips.exe"
                 arch_defs = {"_MIPS_", "MIPS"}
@@ -83,12 +114,14 @@ local function setup_evc3_rule(rule_name)
             elseif arch == "sh3" then
                 comp_name = "shcl.exe"
                 arch_defs = {"_SH3_", "SH3", "SHx"}
+                arch_flags = {"/Qsh3"}
             elseif arch == "sh4" then
                 comp_name = "shcl.exe"
                 arch_defs = {"_SH4_", "SH4", "SHx"}
+                arch_flags = {"/Qsh4"}
             elseif arch == "x86" then
                 comp_name = "cl.exe"
-                arch_defs = {"_X86_", "x86"}
+                arch_defs = {"_X86_", "x86", "_WIN32_WCE_EMULATION"}
             end
 
             local cl_exe = path.join(s, "bin", comp_name)
@@ -153,22 +186,28 @@ local function setup_evc3_rule(rule_name)
             table.insert(argv, "/D_UNICODE")
             table.insert(argv, "/DUNDER_CE=300")
             table.insert(argv, "/D_WIN32_WCE=300")
-            table.insert(argv, "/I" .. path.join(s, "include"))
 
             for _, d in ipairs(arch_defs) do
                 table.insert(argv, "/D" .. d)
             end
 
+            for _, f in ipairs(arch_flags) do
+                table.insert(argv, f)
+            end
+
             -- Target defines
-            for _, def in ipairs(table.wrap(target:get("defines"))) do
+            for _, def in ipairs(collect_target_values(target, "defines")) do
                 table.insert(argv, "/D" .. def)
             end
 
-            -- Target includedirs
-            local incdirs = table.join(table.wrap(target:get("includedirs")), table.wrap(target:get("sysincludedirs")))
+            -- Target includedirs (user and compat headers precede SDK headers)
+            local incdirs = table.join(collect_target_values(target, "includedirs"), collect_target_values(target, "sysincludedirs"))
             for _, inc in ipairs(incdirs) do
-                table.insert(argv, "/I" .. path.absolute(inc))
+                table.insert(argv, "/I" .. to_wibo_path(path.absolute(inc)))
             end
+
+            -- SDK system headers
+            table.insert(argv, "/I" .. to_wibo_path(path.join(s, "include")))
 
             -- Target cxflags, cflags, cxxflags
             for _, flag in ipairs(table.wrap(target:get("cxflags"))) do
@@ -188,14 +227,12 @@ local function setup_evc3_rule(rule_name)
                 table.insert(argv, "/FIwince_c89.h")
             end
 
-            table.insert(argv, "/Fo" .. path.absolute(objfile))
-
-            local rel_source = path.relative(sourcefile, os.projectdir())
-            table.insert(argv, rel_source)
+            table.insert(argv, "/Fo" .. to_wibo_path(path.absolute(objfile)))
+            table.insert(argv, to_wibo_path(path.absolute(sourcefile)))
 
             batchcmds:mkdir(path.directory(objfile))
             local comp_tag = is_cxx and "compiling.evc3.c++" or "compiling.evc3"
-            batchcmds:show_progress(opt.progress, "${color.build.object}%s (%s) %s", comp_tag, arch, rel_source)
+            batchcmds:show_progress(opt.progress, "${color.build.object}%s (%s) %s", comp_tag, arch, path.relative(sourcefile, os.projectdir()))
             if wibo then
                 batchcmds:vrunv(wibo, argv, {envs = envs, curdir = os.projectdir()})
             else
@@ -246,10 +283,11 @@ local function setup_evc3_rule(rule_name)
                 local argv = {
                     link_exe,
                     "/nologo",
+                    "/nodefaultlib",
                     "/subsystem:windowsce,3.00",
                     "/MACHINE:" .. machine,
-                    "/libpath:" .. path.join(s, "lib", arch),
-                    "/out:" .. path.absolute(targetfile)
+                    "/libpath:" .. to_wibo_path(path.join(s, "lib", arch)),
+                    "/out:" .. to_wibo_path(path.absolute(targetfile))
                 }
 
                 if target:is_shared() then
@@ -279,20 +317,34 @@ local function setup_evc3_rule(rule_name)
                 end
 
                 for _, obj in ipairs(objs) do
-                    table.insert(argv, path.absolute(obj))
+                    table.insert(argv, to_wibo_path(path.absolute(obj)))
                 end
 
-                for _, linkdir in ipairs(table.wrap(target:get("linkdirs"))) do
-                    table.insert(argv, "/libpath:" .. path.absolute(linkdir))
+                for _, linkdir in ipairs(collect_target_values(target, "linkdirs")) do
+                    table.insert(argv, "/libpath:" .. to_wibo_path(path.absolute(linkdir)))
                 end
 
-                for _, link in ipairs(table.wrap(target:get("links"))) do
-                    local libname = link:endswith(".lib") and link or (link .. ".lib")
-                    table.insert(argv, libname)
+                local linked_files = {}
+                for _, libfile in ipairs(collect_target_values(target, "libfiles")) do
+                    table.insert(argv, to_wibo_path(path.absolute(libfile)))
+                    local b = path.basename(libfile):lower()
+                    linked_files[b] = true
+                    if b:startswith("lib") then
+                        linked_files[b:sub(4)] = true
+                    end
+                end
+
+                for _, link in ipairs(collect_target_values(target, "links")) do
+                    local l = link:lower()
+                    if not linked_files[l] then
+                        local libname = (link:endswith(".lib") or link:endswith(".a")) and link or (link .. ".lib")
+                        table.insert(argv, libname)
+                    end
                 end
 
                 table.insert(argv, "coredll.lib")
                 table.insert(argv, "corelibc.lib")
+                table.insert(argv, "winsock.lib")
 
                 local tag = target:is_shared() and "linking.evc3.dll" or "linking.evc3"
                 batchcmds:show_progress(opt.progress, "${color.build.target}%s (%s) %s", tag, arch, targetfile)
@@ -307,10 +359,10 @@ local function setup_evc3_rule(rule_name)
                 local argv = {
                     lib_exe,
                     "/nologo",
-                    "/out:" .. path.absolute(targetfile)
+                    "/out:" .. to_wibo_path(path.absolute(targetfile))
                 }
                 for _, obj in ipairs(objs) do
-                    table.insert(argv, path.absolute(obj))
+                    table.insert(argv, to_wibo_path(path.absolute(obj)))
                 end
 
                 batchcmds:show_progress(opt.progress, "${color.build.target}archiving.evc3 (%s) %s", arch, targetfile)
