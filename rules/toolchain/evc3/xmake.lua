@@ -24,6 +24,18 @@ local function setup_evc3_rule(rule_name)
 
             local arch = target:data("evc3.arch") or get_config("arch") or "arm"
             target:data_set("evc3.arch", arch)
+
+            local compat_mode = target:values("recudo.toolchain.evc3.compat") or target:values("recudo.evc3.compat")
+            if compat_mode == "c89" or compat_mode == "ansi" or compat_mode == true then
+                target:data_set("evc3.compat", true)
+                local compat_dir = path.join(os.scriptdir(), "compat")
+                target:data_set("evc3.compat_dir", compat_dir)
+                target:add("includedirs", path.join(compat_dir, "include"), {order = "before"})
+                target:add("files", path.join(compat_dir, "crt.c"))
+                if target:is_binary() and not target:values("recudo.toolchain.evc3.entry") and not target:values("recudo.toolchain.evc3.no_main_bridge") then
+                    target:add("files", path.join(compat_dir, "main_bridge.c"))
+                end
+            end
         end)
 
         on_buildcmd_file(function (target, batchcmds, sourcefile, opt)
@@ -172,6 +184,10 @@ local function setup_evc3_rule(rule_name)
                 end
             end
 
+            if target:data("evc3.compat") then
+                table.insert(argv, "/FIwince_c89.h")
+            end
+
             table.insert(argv, "/Fo" .. path.absolute(objfile))
 
             local rel_source = path.relative(sourcefile, os.projectdir())
@@ -309,3 +325,4 @@ local function setup_evc3_rule(rule_name)
 end
 
 setup_evc3_rule("recudo.toolchain.evc3")
+setup_evc3_rule("recudo.evc3")

@@ -425,5 +425,55 @@ target("evc3_flags_app")
         end
     })
 
+    table.insert(tests, {
+        name = "evc3 compat c89 dry-run injects compat includes, FIwince_c89.h, crt.c and main_bridge.c for binary targets",
+        func = function ()
+            local tmp = path.join(os.tmpdir(), "recudo_test_evc3_compat_bin")
+            os.mkdir(tmp)
+            os.mkdir(path.join(tmp, "src"))
+            io.writefile(path.join(tmp, "src/main.c"), "int main() { return 0; }")
+            io.writefile(path.join(tmp, "xmake.lua"), string.format([[
+includes("%s/includes/recudo.lua")
+target("c89_cli")
+    set_kind("binary")
+    add_rules("recudo.toolchain.evc3", {override = true})
+    set_values("recudo.toolchain.evc3.compat", "c89")
+    add_files("src/*.c")
+]], os.projectdir()))
+
+            local out = run_dry_run(tmp, {"f", "-p", "wince", "-a", "arm"})
+
+            T.assert_true(out:find("/FIwince_c89%.h") ~= nil, "dry-run must pass /FIwince_c89.h")
+            T.assert_true(out:find("rules/toolchain/evc3/compat/include") ~= nil or out:find("compat[/\\]include") ~= nil, "dry-run must include compat headers")
+            T.assert_true(out:find("crt%.c") ~= nil, "dry-run must compile crt.c")
+            T.assert_true(out:find("main_bridge%.c") ~= nil, "dry-run must compile main_bridge.c for binary")
+            T.assert_true(out:find("WinMainCRTStartup") ~= nil, "dry-run must link with WinMainCRTStartup")
+        end
+    })
+
+    table.insert(tests, {
+        name = "evc3 compat c89 dry-run injects crt.c but skips main_bridge.c for static libraries",
+        func = function ()
+            local tmp = path.join(os.tmpdir(), "recudo_test_evc3_compat_lib")
+            os.mkdir(tmp)
+            os.mkdir(path.join(tmp, "src"))
+            io.writefile(path.join(tmp, "src/lib.c"), "int foo() { return 1; }")
+            io.writefile(path.join(tmp, "xmake.lua"), string.format([[
+includes("%s/includes/recudo.lua")
+target("c89_lib")
+    set_kind("static")
+    add_rules("recudo.toolchain.evc3", {override = true})
+    set_values("recudo.toolchain.evc3.compat", "c89")
+    add_files("src/*.c")
+]], os.projectdir()))
+
+            local out = run_dry_run(tmp, {"f", "-p", "wince", "-a", "arm"})
+
+            T.assert_true(out:find("/FIwince_c89%.h") ~= nil, "dry-run must pass /FIwince_c89.h")
+            T.assert_true(out:find("crt%.c") ~= nil, "dry-run must compile crt.c for static library")
+            T.assert_nil(out:find("main_bridge%.c"), "dry-run must NOT compile main_bridge.c for static library")
+        end
+    })
+
     return tests
 end
