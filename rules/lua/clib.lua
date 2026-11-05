@@ -80,7 +80,10 @@ local function setup_clib_rule(rule_name)
             local entry = target:values("recudo.lua.clib.entry") or target:values("recudo.lua.entry") or "init"
             local mode = target:values("recudo.lua.clib.mode") or "context"
             local preload_fn = target:values("recudo.lua.bundle.preload") or (prefix .. "preload_bundled_modules")
-            local exports = target:values("recudo.lua.clib.exports") or {}
+            local exports = target:get("values.recudo.lua.clib.exports") or target:values("recudo.lua.clib.exports") or {}
+            if exports.name then
+                exports = { exports }
+            end
             local lua_libs = target:values("recudo.lua.libs") or target:values("recudo.lua.clib.libs")
             local lua_libs_exclude = target:values("recudo.lua.libs.exclude") or target:values("recudo.lua.clib.libs.exclude")
 
@@ -155,7 +158,10 @@ local function setup_clib_rule(rule_name)
 
             local mode = target:values("recudo.lua.clib.mode") or "context"
             local preload_fn = target:values("recudo.lua.bundle.preload") or (prefix .. "preload_bundled_modules")
-            local exports = target:values("recudo.lua.clib.exports") or {}
+            local exports = target:get("values.recudo.lua.clib.exports") or target:values("recudo.lua.clib.exports") or {}
+            if exports.name then
+                exports = { exports }
+            end
             local lua_libs = target:values("recudo.lua.libs") or target:values("recudo.lua.clib.libs")
             local lua_libs_exclude = target:values("recudo.lua.libs.exclude") or target:values("recudo.lua.clib.libs.exclude")
 
