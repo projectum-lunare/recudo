@@ -22,7 +22,7 @@ When retro computing comes up, you think C and assembly. Rarely Lua. Yet Lua is 
 
 - **One source, many dies.** The same module becomes a `.so` on Linux, a static archive on Amiga, and a fused single-binary on release — struck through each toolchain like a coin through its die.
 - **A complete Lua pipeline** — modules, native C extensions, app launchers, monolithic bundles, isolated environments — a LuaRocks alternative that lives inside the build graph.
-- **Vintage toolchains as first-class citizens** — Open Watcom v2, MS eVC 3.0, Bebbo GCC, FreeMiNT GCC, Kos32 GCC — executed as native Xmake rules, with no brittle shell or Python wrapper scripts.
+- **Vintage toolchains as first-class citizens** — Open Watcom v2, MS eVC 3.0 (with built-in ANSI C89 & POSIX polyfill layer), Bebbo GCC, FreeMiNT GCC, Kos32 GCC — executed as native Xmake rules, with no brittle shell or Python wrapper scripts.
 - **Formal custom platforms** — `amiga`, `atari`, `kolibri`, `dos`, `os2`, `wince`, plus first-class `freebsd`, `openbsd`, `netbsd` and `dragonflybsd`.
 - **Beyond plain Lua** — LÖVE 2D and Amulet game packaging, Teal static typing, Nelua systems code, Haxe multi-backend compilation, and a full compile-to-Lua transpiler suite (Erde, Pallene, Pluto, Fennel, MoonScript, YueScript, TypeScriptToLua, CSharp.lua, PureScript), all flowing through the same pipeline.
 - **Matrix orchestration** — `xmake recudo` to audit, cross-compile and benchmark across every target.
@@ -577,17 +577,29 @@ target("my_retro_app")
     -- Microsoft Embedded Visual C++ 3.0 via wibo (Windows CE)
     elseif is_plat("wince") then
         add_rules("recudo.toolchain.evc3", {override = true})
-        -- For console apps using standard main() instead of GUI WinMain():
-        -- set_values("recudo.toolchain.evc3.entry", "mainACRTStartup")
+        set_values("recudo.toolchain.evc3.compat", "c89")
     end
 ```
 *(Standard platforms like `amiga`, `atari`, `kolibri`, `freebsd`, `openbsd`, `netbsd`, `dragonflybsd`, and `linux` use native GCC/Clang toolchains automatically with standard Xmake C/C++ build graphs).*
 
+#### Windows CE ANSI C89 & POSIX Polyfill Layer (`recudo.toolchain.evc3.compat`)
+
+Microsoft's Windows CE 3.0 SDK intentionally stripped the standard C Runtime (CRT) from `coredll.dll` to fit in low-memory ROM/RAM devices. Standard headers (`<time.h>`, `<errno.h>`, `<locale.h>`, `<signal.h>`, `<assert.h>`, `<sys/stat.h>`, `<unistd.h>`, `<fcntl.h>`) were omitted, and common POSIX/C functions (`time()`, `clock()`, `remove()`, `rename()`, `stat()`, `strtod()`, `isspace()`, etc.) are missing. Furthermore, Windows CE requires GUI `WinMain` entry points instead of standard `main()`.
+
+By setting `set_values("recudo.toolchain.evc3.compat", "c89")` (or `"ansi"`), Recudo activates an integrated ~90% C89/POSIX compatibility polyfill:
+
+1. **Header Stubs (`compat/include`)**: Restores standard C headers ahead of the SDK (`<time.h>`, `<errno.h>`, `<locale.h>`, `<signal.h>`, `<assert.h>`, `<stddef.h>`, `<sys/stat.h>`, `<sys/types.h>`, `<unistd.h>`, `<fcntl.h>`, `<ctype.h>`).
+2. **Mini-CRT (`crt.c`)**: Real Unix epoch time/date calculations, filesystem operations mapped to Win32 CE, ctype classifications, floating-point parsing, and POSIX error mappings.
+3. **Transparent Forced Includes (`/FIwince_c89.h`)**: Injects standard declarations and neutralizes broken `__declspec(dllimport)` linkage across all compilation units with zero changes to upstream sources.
+4. **Universal CLI Bridge (`main_bridge.c`)**: For binary targets, automatically implements `WinMain`, parses `GetCommandLineW()` into UTF-8 `argc`/`argv`, and invokes `int main(int argc, char **argv)`.
+
+With this layer active, standard ANSI C libraries and programs (e.g. Lua 5.1–5.5, SQLite, zlib, cJSON) compile and run on Windows CE with **zero source patches**.
+
 > [!NOTE]
-> **Windows CE Entry Point:** By default, executables built with `recudo.toolchain.evc3` target the CE graphical subsystem and use `/entry:WinMainCRTStartup` (which invokes `WinMain`). If you are compiling a console / CLI application with a standard `main()`, set the entry point to `mainACRTStartup`:
+> **Custom Entry Points:** If you are building a GUI application with its own native `WinMain` or want a specific CRT entry point (e.g., `mainACRTStartup`), specify it explicitly:
 > ```lua
-> set_values("recudo.toolchain.evc3.entry", "mainACRTStartup")
-> -- or: add_ldflags("/entry:mainACRTStartup")
+> set_values("recudo.toolchain.evc3.entry", "WinMainCRTStartup")
+> -- or: add_ldflags("/entry:custom_entry")
 > ```
 
 ### Provisioning SDKs (`xmake recudo tool`)
