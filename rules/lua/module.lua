@@ -9,6 +9,12 @@
 local function setup_module_rule(rule_name)
     rule(rule_name)
         set_extensions(".lua")
+        local p = (is_plat and (is_plat("wince") and "wince" or (is_plat("dos") and "dos" or (is_plat("os2") and "os2")))) or (get_config and get_config("plat"))
+        if p == "wince" then
+            add_deps("recudo.evc3")
+        elseif p == "dos" or p == "os2" then
+            add_deps("recudo.watcom")
+        end
 
         on_load(function (target)
             import("lua.env")
@@ -33,19 +39,35 @@ local function setup_module_rule(rule_name)
                 local marked_shared = (config.get("kind") == "shared") or (target:get("kind") == "shared")
                 local user_kind = target:values("recudo.lua.kind")
                 if user_kind == "static" then
+                    -- Embedding archive: always static, even in shared mode.
                     marked_shared = false
-                elseif user_kind == "shared" then
-                    marked_shared = true
                 end
+                -- user_kind == "shared" declares loadable-module intent; the
+                -- concrete artifact follows the global link mode: shared mode
+                -- yields a .so linked against the runtime, static mode yields
+                -- a binding archive without any embedded interpreter.
                 local is_static = not lua_module.supports_dynamic(target:plat()) or not marked_shared
 
                 if is_static then
                     -- Static archive mode (.a / .lib)
                     target:set("kind", "static")
                     target:data_set("recudo.lua.is_static", true)
-                    local clean_name = lua_module.link_name(target:name())
-                    target:set("basename", clean_name)
                     target:data_set("recudo.lua.open_symbol", lua_module.open_symbol(target:name()))
+                    if user_kind == "static" then
+                        -- Explicit embedding archive: the project names and
+                        -- places it (no suffix, no directory redirect).
+                        local clean_name = target:get("basename") or lua_module.link_name(target:name())
+                        target:set("basename", clean_name)
+                    else
+                        -- Implicit binding archives carry a _lua suffix so they
+                        -- can never collide with the project's own C libraries
+                        -- sharing the flattened module name (libcais_serial.a =
+                        -- C subsystem vs libcais_serial_lua.a = Lua binding).
+                        target:set("basename", lua_module.link_name(target:name()) .. "_lua")
+                        local parts = target:name():split('.', {plain = true})
+                        local subdirs = #parts > 1 and table.concat(table.slice(parts, 1, #parts - 1), "/") or ""
+                        target:set("targetdir", path.join("build/lua_static", subdirs))
+                    end
                     if lua_module.supports_dynamic(target:plat()) and not target:is_plat("windows") then
                         target:add("cxflags", "-fPIC")
                     end

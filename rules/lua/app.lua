@@ -76,6 +76,55 @@ local function setup_app_rule(rule_name)
             target:add("runenvs", "LUA_CPATH", env.get_lua_cpaths())
         end)
 
+        on_config(function (target)
+            -- Static modules cannot be dlopened at runtime. When native
+            -- dependencies are binding archives, promote the app to a fully
+            -- self-contained binary: interpreter, binding archives and the
+            -- entry script (embedded as a preload byte array) in one file.
+            local static_modules = {}
+            for depname, dept in pairs(target:deps()) do
+                if dept:data("recudo.lua.is_cmodule") and dept:data("recudo.lua.is_static") then
+                    local symbol = dept:data("recudo.lua.open_symbol")
+                    if symbol then
+                        table.insert(static_modules, {name = depname, symbol = symbol})
+                    end
+                end
+            end
+            if #static_modules == 0 then
+                return
+            end
+
+            local bundler = import("lua.bundler")
+            local env_mod = import("lua.env")
+            local projdir = os.projectdir()
+            local entry = target:data("recudo.lua.entry") or "src/main.lua"
+            local entry_abs = path.join(projdir, entry)
+            if not os.isfile(entry_abs) then
+                return
+            end
+            local gensrc = path.join(projdir, "build", ".recudo", target:name() .. "_bundle.c")
+            local src = bundler.generate_bundle_source({entry_abs}, {
+                entry_module = env_mod.get_module_name(entry),
+                native_modules = static_modules
+            })
+            os.mkdir(path.directory(gensrc))
+            io.writefile(gensrc, src)
+
+            target:set("kind", "binary")
+            target:set("targetdir", path.join(projdir, "build", "bin"))
+            target:add("files", gensrc)
+            target:add("packages", "lua")
+            -- Mirror the Lua ABI defines from the binding archives so the
+            -- embedded interpreter headers match the linked code exactly
+            -- (e.g. LUA_32BITS on 32-bit-ish targets).
+            for _, def in ipairs(table.wrap(target:dep(static_modules[1].name):get("defines"))) do
+                if def:startswith("LUA_") then
+                    target:add("defines", def)
+                end
+            end
+            target:data_set("recudo.lua.static_app", true)
+        end)
+
         before_build(function (target)
             import("lua.env")
             env.stage_lua_sourcefiles(target, target:sourcefiles())
@@ -179,6 +228,13 @@ local function setup_app_rule(rule_name)
         on_run(function (target)
             import("core.base.option")
             import("lua.env")
+
+            if target:data("recudo.lua.static_app") then
+                local args = option.get("arguments") or {}
+                cprint("${dim}==> [recudo] Executing static application: %s${clear}", target:targetfile())
+                os.execv(target:targetfile(), args, {curdir = os.projectdir()})
+                return
+            end
 
             local lua_bin = env.lua_program(target)
             if not lua_bin then
