@@ -81,6 +81,8 @@ local function setup_clib_rule(rule_name)
             local mode = target:values("recudo.lua.clib.mode") or "context"
             local preload_fn = target:values("recudo.lua.bundle.preload") or (prefix .. "preload_bundled_modules")
             local exports = target:values("recudo.lua.clib.exports") or {}
+            local lua_libs = target:values("recudo.lua.libs") or target:values("recudo.lua.clib.libs")
+            local lua_libs_exclude = target:values("recudo.lua.libs.exclude") or target:values("recudo.lua.clib.libs.exclude")
 
             local header_file = target:values("recudo.lua.clib.header")
             local header_path
@@ -98,6 +100,8 @@ local function setup_clib_rule(rule_name)
                 entry_module = entry,
                 preload_function = preload_fn,
                 header_file = header_file,
+                lua_libs = lua_libs,
+                lua_libs_exclude = lua_libs_exclude,
                 exports = exports
             }
 
@@ -151,6 +155,8 @@ local function setup_clib_rule(rule_name)
             local mode = target:values("recudo.lua.clib.mode") or "context"
             local preload_fn = target:values("recudo.lua.bundle.preload") or (prefix .. "preload_bundled_modules")
             local exports = target:values("recudo.lua.clib.exports") or {}
+            local lua_libs = target:values("recudo.lua.libs") or target:values("recudo.lua.clib.libs")
+            local lua_libs_exclude = target:values("recudo.lua.libs.exclude") or target:values("recudo.lua.clib.libs.exclude")
 
             -- Header destination
             local header_file = target:values("recudo.lua.clib.header")
@@ -172,6 +178,8 @@ local function setup_clib_rule(rule_name)
                 entry_module = entry_mod,
                 preload_function = preload_fn,
                 header_file = header_file,
+                lua_libs = lua_libs,
+                lua_libs_exclude = lua_libs_exclude,
                 exports = exports
             }
 
