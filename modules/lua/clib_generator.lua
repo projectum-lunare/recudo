@@ -52,6 +52,8 @@ struct lua_State;
 #define <%= prefix_upper %>ERR      -1
 #define <%= prefix_upper %>ERR_ARG  -2
 #define <%= prefix_upper %>ERR_MEM  -3
+#define <%= prefix_upper %>ERR_PARAM  <%= prefix_upper %>ERR_ARG
+#define <%= prefix_upper %>ERR_MEMORY <%= prefix_upper %>ERR_MEM
 
 <% if mode == "context" or mode == "both" then %>
 /* Opaque context handle holding the Lua runtime state */
@@ -242,6 +244,22 @@ static int <%= prefix %>impl_<%= fn.name %>(
         return <%= prefix_upper %>ERR_ARG;
     }
 
+    /* Validate required parameters */
+<% for _, p in ipairs(fn.params or {}) do %>
+<% if p.required or p.type == "bytes" or p.type == "buffer" then %>
+    if (!<%= p.name %>) {
+        lua_settop(L, base);
+        if (err_msg) {
+            const char *msg = "parameter '<%= p.name %>' cannot be NULL";
+            size_t mlen = strlen(msg);
+            char *buf = (char *)malloc(mlen + 1);
+            if (buf) { memcpy(buf, msg, mlen + 1); *err_msg = buf; }
+        }
+        return <%= prefix_upper %>ERR_ARG;
+    }
+<% end %>
+<% end %>
+
     /* Push arguments */
 <% for _, p in ipairs(fn.params or {}) do %>
 <% if p.type == "string" then %>
@@ -286,6 +304,23 @@ static int <%= prefix %>impl_<%= fn.name %>(
     if (err_msg) {
         *err_msg = NULL;
     }
+
+<% if #(fn.returns or {}) > 0 and (fn.returns[1].type == "string" or fn.returns[1].type == "bytes" or fn.returns[1].type == "buffer") then %>
+    if (lua_isnil(L, -<%= #(fn.returns or {}) %>)) {
+        if (err_msg && lua_isstring(L, -1)) {
+            size_t elen = 0;
+            const char *estr = lua_tolstring(L, -1, &elen);
+            char *ebuf = (char *)malloc(elen + 1);
+            if (ebuf) {
+                if (estr) memcpy(ebuf, estr, elen);
+                ebuf[elen] = '\0';
+                *err_msg = ebuf;
+            }
+        }
+        lua_settop(L, base);
+        return <%= prefix_upper %>ERR;
+    }
+<% end %>
 
     /* Extract return values */
 <% for idx, r in ipairs(fn.returns or {}) do %>
