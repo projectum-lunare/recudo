@@ -226,13 +226,28 @@ function bundle_sources(roots)
                     module_map[abs] = mod.name
                 elseif mod.kind == "c" and mod.ext then
                     exts[mod.ext] = true
-                elseif mod.kind == "c" and mod.link and mod.symbol then
-                    table.insert(natives, {
-                        name = mod.name,
-                        symbol = mod.symbol,
-                        link = mod.link,
-                        linkdir = path.join(root, "lib")
-                    })
+                elseif mod.kind == "c" and mod.symbol and not mod.name:endswith("_static") then
+                    local libname = mod.link
+                    if mod.relpath then
+                        local b = path.basename(mod.relpath)
+                        if b:startswith("lib") then
+                            libname = b:sub(4)
+                        else
+                            libname = b
+                        end
+                    end
+                    local libfile = mod.relpath and path.join(root, mod.relpath)
+                    if not libfile or not os.isfile(libfile) then
+                        libfile = path.join(root, "lib", (os.host() == "windows" and "" or "lib") .. (libname or "") .. (os.host() == "windows" and ".lib" or ".a"))
+                    end
+                    if os.isfile(libfile) then
+                        table.insert(natives, {
+                            name = mod.name,
+                            symbol = mod.symbol,
+                            link = libname,
+                            linkdir = path.join(root, "lib")
+                        })
+                    end
                 end
             end
             for ext, _ in pairs(exts) do

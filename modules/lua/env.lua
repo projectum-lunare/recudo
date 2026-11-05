@@ -56,13 +56,15 @@ end
 
 -- Resolve source file relative path inside a target
 function get_relative_path(target, srcfile)
-    local rootdir = (target and target:extraconf("files", srcfile, "rootdir")) or (target and target:values("recudo.lua.rootdir"))
+    local rootdir = (target and target.extraconf and target:extraconf("files", srcfile, "rootdir")) or (target and target.values and target:values("recudo.lua.rootdir"))
     if rootdir then
         return path.relative(srcfile, rootdir):gsub("\\", "/")
     end
 
     local norm = path.normalize(srcfile):gsub("\\", "/")
-    if norm:startswith("src/") then
+    if norm:startswith("src/lua/") then
+        return norm:sub(9)
+    elseif norm:startswith("src/") then
         return norm:sub(5)
     elseif norm:startswith("lua/") then
         return norm:sub(5)

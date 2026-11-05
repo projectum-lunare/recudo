@@ -53,8 +53,12 @@ local function setup_evc3_rule(rule_name)
             local arch = target:data("evc3.arch") or get_config("arch") or "arm"
             target:data_set("evc3.arch", arch)
 
+            -- WinCE is exclusively 32-bit little-endian across all supported dies
+            target:values_set("recudo.lua.bundle.endian", "le")
+            target:values_set("recudo.lua.bundle.bits", 32)
+
             local compat_mode = target:values("recudo.toolchain.evc3.compat") or target:values("recudo.evc3.compat")
-            if compat_mode == "c89" or compat_mode == "ansi" or compat_mode == true or target:rule("recudo.lua.module") then
+            if compat_mode ~= false then
                 target:data_set("evc3.compat", true)
                 local compat_dir = path.join(os.scriptdir(), "compat")
                 target:data_set("evc3.compat_dir", compat_dir)

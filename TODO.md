@@ -297,6 +297,42 @@ modules, or ship a separate `vasm` package with the full module set.
 
 ---
 
+## Emulation & Runtime Execution
+
+### VM & Emulator Runner Subsystem (`recudo.vm` / `xmake recudo run`)
+
+**Status:** prototyped in `dotstar/scripts/vm.lua` and `scripts/vms/`, not yet ported to Recudo.
+
+Recudo excels at cross-compiling to retro and vintage targets (DOS, Windows CE,
+AmigaOS, Atari ST, KolibriOS, Plan 9, OS/2, Haiku), but currently leaves the
+runtime verification step entirely to the developer or custom project scripts.
+
+The `dotstar` project served as the testbed and prototype ("father") of Recudo,
+and carried a full VM/emulator orchestration engine:
+
+- **Orchestrator (`scripts/vm.lua`):** boots guest emulators with target binaries
+  injected, handles headless smoke testing or interactive sessions, and manages
+  disk image generation / loopback mounting.
+- **Engine Backends (`scripts/lib/vm/engines/`):**
+  - **QEMU:** FreeDOS, Windows CE, KolibriOS, Plan 9 / 9front, BeOS, Haiku, MINIX, OS/2.
+  - **FS-UAE / UAE:** AmigaOS (Classic m68k and AmigaOS 4 PPC).
+  - **Hatari / Aranym:** Atari ST / TOS.
+  - **DOSBox-X:** MS-DOS / PC-DOS.
+- **Hardware & Device Passthrough (`scripts/lib/printer_passthrough.lua`, `printer_daemon.lua`):**
+  - Host-to-guest USB printer passthrough via Linux sysfs.
+  - Serial and parallel port redirection (pipes, TCP sockets, or hardware capture to files/PDF).
+
+Porting this architecture into a first-class Recudo plugin (`recudo.vm` and
+`xmake recudo run <platform>`) turns Recudo from a cross-compiler into a closed-loop
+multi-die development environment: build, test, and run across all supported vintage
+platforms directly from `xmake`.
+
+**Done when:** `xmake recudo run --plat=freedos` (or `amiga`, `wince`, etc.)
+provisions/locates the appropriate emulator, prepares the execution environment,
+launches the target binary, and reports exit status.
+
+---
+
 ## Testing
 
 ### Real SDK verification in CI

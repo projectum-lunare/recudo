@@ -35,6 +35,10 @@ local function setup_watcom_rule(rule_name)
                 end
                 target:data_set("watcom.target", target_sys)
             end
+
+            -- DOS 32-bit and OS/2 Warp are 32-bit little-endian x86
+            target:values_set("recudo.lua.bundle.endian", "le")
+            target:values_set("recudo.lua.bundle.bits", 32)
         end)
 
         on_buildcmd_file(function (target, batchcmds, sourcefile, opt)

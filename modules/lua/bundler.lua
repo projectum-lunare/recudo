@@ -2,8 +2,8 @@
 -- Copyright (C) 2026 Gustavo Veiga <gustavo.veiga@outlook.com.br>
 -- Mozilla Public License Version 2.0
 --
--- Compiles and embeds Lua source files directly into C89 byte arrays,
--- using an ERB-style template engine for high clarity and customizability.
+-- Compiles and embeds Lua source files or precompiled bytecode directly into C89 byte arrays,
+-- supporting target-aware endianness (LE/BE) and bitness (32/64-bit) for retro & embedded dies.
 
 import("template", {rootdir = path.join(os.scriptdir(), "..")})
 import("env", {rootdir = os.scriptdir()})
@@ -30,6 +30,40 @@ extern "C" {
 #include <stdio.h>
 #include <stdlib.h>
 
+<% if no_parser then %>
+#if defined(LUA_NO_PARSER) && !defined(RECUDO_CUSTOM_PARSER_STUBS)
+#if defined(RECUDO_LUA_SUBDIR)
+#  include <lua/lzio.h>
+#elif defined(__has_include)
+#  if __has_include(<lua/lzio.h>)
+#    include <lua/lzio.h>
+#  elif __has_include(<lzio.h>)
+#    include <lzio.h>
+#  else
+     typedef struct Zio ZIO;
+#  endif
+#elif defined(LUA_USE_C89) || defined(_WIN32_WCE)
+#  include <lua/lzio.h>
+#else
+#  include <lzio.h>
+#endif
+
+void luaX_init(lua_State *L) { (void)L; }
+void *luaY_parser(lua_State *L, ZIO *z, void *anchor, void *buff, void *dyd, const char *name, int firstchar) {
+    (void)z; (void)anchor; (void)buff; (void)dyd; (void)firstchar;
+    lua_pushfstring(L, "parser not available in runtime (cannot load '%s')", name ? name : "chunk");
+    lua_error(L);
+    return NULL;
+}
+int luaU_dump(lua_State *L, const void *f, lua_Writer w, void *data, int strip) {
+    (void)f; (void)w; (void)data; (void)strip;
+    lua_pushliteral(L, "bytecode dumper not available in runtime");
+    lua_error(L);
+    return 1;
+}
+#endif
+<% end %>
+
 <% for _, native in ipairs(native_modules or {}) do %>
 extern int <%= native.symbol %>(lua_State *L);
 <% end %>
@@ -48,7 +82,7 @@ static int <%= mod.loader %>(lua_State *L) {
 }
 <% end %>
 
-void recudo_lua_preload_all(lua_State *L) {
+void <%= preload_function %>(lua_State *L) {
     lua_getglobal(L, "package");
     lua_getfield(L, -1, "preload");
 <% for _, mod in ipairs(modules) do %>
@@ -63,15 +97,37 @@ void recudo_lua_preload_all(lua_State *L) {
 }
 
 <% if include_main then %>
+<% if state_init then %>
+extern lua_State *<%= state_init %>(void);
+<% end %>
+
 int main(int argc, char **argv) {
-    lua_State *L = luaL_newstate();
     int i, status;
+    int exit_code = 0;
+<% if state_init then %>
+    lua_State *L = <%= state_init %>();
+    if (!L) {
+        fprintf(stderr, "[recudo] Error: Failed to initialize application Lua state.\n");
+        return 1;
+    }
+<% else %>
+    lua_State *L = luaL_newstate();
     if (!L) {
         fprintf(stderr, "[recudo] Error: Failed to initialize Lua runtime.\n");
         return 1;
     }
+<% if not lua_libs then %>
     luaL_openlibs(L);
-    recudo_lua_preload_all(L);
+<% else %>
+    /* Selective Lua Standard Library Loading */
+<% for _, lib in ipairs(lua_libs) do %>
+    luaL_requiref(L, "<%= lib.name %>", <%= lib.openf %>, 1);
+    lua_pop(L, 1);
+<% end %>
+<% end %>
+<% end %>
+    <%= preload_function %>(L);
+
 <% if cpath and #cpath > 0 then %>
     lua_getglobal(L, "package");
     lua_pushstring(L, "<%= cpath %>");
@@ -80,7 +136,7 @@ int main(int argc, char **argv) {
 <% end %>
 
     /* Push arguments into arg table */
-    lua_createtable(L, argc - 1, 1);
+    lua_createtable(L, argc > 1 ? argc - 1 : 0, 1);
     for (i = 0; i < argc; i++) {
         lua_pushstring(L, argv[i]);
         lua_rawseti(L, -2, i);
@@ -90,71 +146,284 @@ int main(int argc, char **argv) {
     /* Execute entry module '<%= entry_module %>' via require */
     lua_getglobal(L, "require");
     lua_pushstring(L, "<%= entry_module %>");
-    status = lua_pcall(L, 1, 0, 0);
+    status = lua_pcall(L, 1, 1, 0);
     if (status != LUA_OK) {
         const char *err = lua_tostring(L, -1);
         fprintf(stderr, "[recudo] Runtime error: %s\n", err ? err : "unknown");
         lua_close(L);
         return 1;
     }
+
+    /* Auto-execute runnable entrypoint: func(arg) or table.run(arg) */
+    if (lua_isfunction(L, -1)) {
+        lua_getglobal(L, "arg");
+        status = lua_pcall(L, 1, 1, 0);
+    } else if (lua_istable(L, -1)) {
+        lua_getfield(L, -1, "run");
+        if (lua_isfunction(L, -1)) {
+            lua_getglobal(L, "arg");
+            status = lua_pcall(L, 1, 1, 0);
+        } else {
+            lua_pop(L, 1);
+        }
+    }
+
+    if (status != LUA_OK) {
+        const char *err = lua_tostring(L, -1);
+        fprintf(stderr, "[recudo] Execution error: %s\n", err ? err : "unknown");
+        lua_close(L);
+        return 1;
+    }
+
+    if (lua_isinteger(L, -1)) {
+        exit_code = (int)lua_tointeger(L, -1);
+    }
+
     lua_close(L);
-    return 0;
+    return exit_code;
 }
 <% end %>
 ]]
+
+local ARCH_PROBE_TEMPLATE = [[
+/* Projectum Lunare Recudo - Unified Target Machine Architecture Probe */
+#if (defined(__BYTE_ORDER__) && __BYTE_ORDER__ == __ORDER_BIG_ENDIAN__) || \
+    (defined(__BYTE_ORDER) && defined(__BIG_ENDIAN) && __BYTE_ORDER == __BIG_ENDIAN) || \
+    defined(__BIG_ENDIAN__) || defined(_BIG_ENDIAN) || \
+    defined(_MIPSEB) || defined(__ARMEB__) || defined(__AARCH64EB__) || \
+    defined(__m68k__) || defined(__sparc__) || defined(__s390__) || defined(__hppa__) || defined(__m88k__)
+#  define RECUDO_IS_BIG_ENDIAN 1
+#  define RECUDO_IS_LITTLE_ENDIAN 0
+#else
+#  define RECUDO_IS_BIG_ENDIAN 0
+#  define RECUDO_IS_LITTLE_ENDIAN 1
+#endif
+
+#if defined(__LP64__) || defined(_LP64) || defined(_WIN64) || \
+    defined(__x86_64__) || defined(__aarch64__) || defined(__mips64) || \
+    defined(__powerpc64__) || defined(__sparc64__) || defined(__s390x__) || \
+    (defined(__SIZEOF_POINTER__) && __SIZEOF_POINTER__ == 8)
+#  define RECUDO_IS_64BIT 1
+#  define RECUDO_IS_32BIT 0
+#else
+#  define RECUDO_IS_64BIT 0
+#  define RECUDO_IS_32BIT 1
+#endif
+]]
+
+local CANONICAL_LUA_LIBS = {
+    "base",
+    "package",
+    "coroutine",
+    "table",
+    "io",
+    "os",
+    "string",
+    "math",
+    "utf8",
+    "debug"
+}
+
+local STD_LUA_LIBS = {
+    ["_G"]        = {name = "_G",        openf = "luaopen_base"},
+    ["base"]      = {name = "_G",        openf = "luaopen_base"},
+    ["coroutine"] = {name = "coroutine", openf = "luaopen_coroutine"},
+    ["table"]     = {name = "table",     openf = "luaopen_table"},
+    ["io"]        = {name = "io",        openf = "luaopen_io"},
+    ["os"]        = {name = "os",        openf = "luaopen_os"},
+    ["string"]    = {name = "string",    openf = "luaopen_string"},
+    ["math"]      = {name = "math",      openf = "luaopen_math"},
+    ["utf8"]      = {name = "utf8",      openf = "luaopen_utf8"},
+    ["debug"]     = {name = "debug",     openf = "luaopen_debug"},
+    ["package"]   = {name = "package",   openf = "luaopen_package"}
+}
 
 local function c_escape(text)
     return (tostring(text):gsub("\\", "\\\\"):gsub("\"", "\\\""):gsub("\r", "\\r"):gsub("\n", "\\n"))
 end
 
--- Format raw file bytes into formatted C hex array lines
 local function bytes_to_c_hex(content)
-    local hex_lines = {}
-    local current_line = {}
-    for b in content:gmatch(".") do
-        table.insert(current_line, string.format("0x%02x", string.byte(b)))
-        if #current_line >= 16 then
-            table.insert(hex_lines, "    " .. table.concat(current_line, ", "))
-            current_line = {}
+    local hex = {}
+    for i = 1, #content do
+        table.insert(hex, string.format("0x%02x", content:byte(i)))
+    end
+    local lines = {}
+    for i = 1, #hex, 16 do
+        table.insert(lines, "    " .. table.concat(hex, ", ", i, math.min(i + 15, #hex)))
+    end
+    return table.concat(lines, ",\n")
+end
+
+-- Probes compiler preprocessor macros for machine code endianness and word size
+-- Uses the unified ARCH_PROBE_TEMPLATE as the single source of truth.
+local function probe_compiler_macros(target)
+    if not (target and target.check_csnippets) then return nil, nil end
+
+    local is_be = try { function()
+        return target:check_csnippets(ARCH_PROBE_TEMPLATE .. "\n#if RECUDO_IS_BIG_ENDIAN\nint main(void) { return 0; }\n#else\n#error not_be\n#endif\n")
+    end }
+
+    local is_le = try { function()
+        return target:check_csnippets(ARCH_PROBE_TEMPLATE .. "\n#if RECUDO_IS_LITTLE_ENDIAN\nint main(void) { return 0; }\n#else\n#error not_le\n#endif\n")
+    end }
+
+    local is_64 = try { function()
+        return target:check_csnippets(ARCH_PROBE_TEMPLATE .. "\n#if RECUDO_IS_64BIT\nint main(void) { return 0; }\n#else\n#error not_64\n#endif\n")
+    end }
+
+    local is_32 = try { function()
+        return target:check_csnippets(ARCH_PROBE_TEMPLATE .. "\n#if RECUDO_IS_32BIT\nint main(void) { return 0; }\n#else\n#error not_32\n#endif\n")
+    end }
+
+    local endian = is_be and "be" or (is_le and "le" or nil)
+    local bits = is_64 and 64 or (is_32 and 32 or nil)
+
+    return endian, bits
+end
+
+-- Resolves target architecture profile: endian ("le" | "be") and bits (32 | 64)
+-- Compiler macros serve as the single source of truth for the target machine code.
+function resolve_profile(target_or_opt)
+    local opt = target_or_opt or {}
+    local is_target = type(target_or_opt) == "userdata" or (type(target_or_opt) == "table" and target_or_opt.is_plat)
+    local target = is_target and target_or_opt or opt.target
+
+    -- 1. Explicit caller / target configuration
+    local endian = opt.endian or (target and target:values("recudo.lua.bundle.endian"))
+    local bits = opt.bits or (opt.bits32 and 32) or (target and target:values("recudo.lua.bundle.bits"))
+
+    if target and (target:values("lua_32bits") or (target.config and target:config("lua_32bits"))) then
+        bits = 32
+    end
+    if target and target.get then
+        local defs = table.wrap(target:get("defines"))
+        for _, d in ipairs(defs) do
+            if d == "LUA_32BITS" or d == "__ILP32__" or d == "_ILP32" then bits = 32 end
+            if d == "LUA_BIG_ENDIAN" or d == "__BIG_ENDIAN__" or d == "_BIG_ENDIAN" then endian = "be" end
+            if d == "LUA_LITTLE_ENDIAN" or d == "__LITTLE_ENDIAN__" or d == "_LITTLE_ENDIAN" then endian = "le" end
         end
     end
-    if #current_line > 0 then
-        table.insert(hex_lines, "    " .. table.concat(current_line, ", "))
+
+    -- 2. Probe compiler preprocessor directly (single source of truth for machine code)
+    if (not endian or not bits) and target then
+        local probed_endian, probed_bits = probe_compiler_macros(target)
+        endian = endian or probed_endian
+        bits = bits or probed_bits
     end
-    return table.concat(hex_lines, ",\n")
+
+    -- 3. Default to host or arch profile if unprobed
+    local default_bits = 64
+    if target and target.arch and target:arch() then
+        local a = tostring(target:arch()):lower()
+        if not a:find("64") and not a:find("alpha") and not a:find("ia64") and a ~= "s390x" then
+            default_bits = 32
+        end
+    elseif os.arch() and not tostring(os.arch()):find("64") then
+        default_bits = 32
+    end
+    return endian or "le", tonumber(bits or default_bits)
+end
+
+local function get_host_lua_info(target)
+    -- 1. Check if target is building natively for host and has lua package
+    if target and not target:is_cross() and target:pkg("lua") then
+        local idir = target:pkg("lua"):installdir()
+        if idir and os.isdir(idir) then
+            local lib = path.join(idir, "lib", (os.host() == "windows") and "lua.lib" or "liblua.a")
+            if os.isfile(lib) then
+                return {
+                    includedirs = {path.join(idir, "include"), path.join(idir, "include", "lua")},
+                    libfiles = {lib},
+                    syslinks = {"dl", "m"}
+                }
+            end
+        end
+    end
+
+    -- 2. Look for host Lua package installed in ~/.xmake/packages directly
+    local pkg_mod = import("core.package.package", {anonymous = true})
+    local root = pkg_mod and pkg_mod.installdir and path.join(pkg_mod.installdir(), "l", "lua")
+    if root and os.isdir(root) then
+        local manifests = os.files(path.join(root, "*", "*", "manifest.txt"))
+        table.sort(manifests, function(a, b) return a > b end)
+        for _, mf in ipairs(manifests) do
+            local m = io.load(mf)
+            if m and m.plat == os.host() and m.arch == os.arch() then
+                local idir = path.directory(mf)
+                local lib = path.join(idir, "lib", (os.host() == "windows") and "lua.lib" or "liblua.a")
+                if os.isfile(lib) then
+                    return {
+                        includedirs = {path.join(idir, "include"), path.join(idir, "include", "lua")},
+                        libfiles = {lib},
+                        syslinks = (m.vars and m.vars.syslinks) or {"dl", "m"}
+                    }
+                end
+            end
+        end
+    end
+
+    return nil
+end
+
+function get_or_build_luac_cross(opt)
+    opt = opt or {}
+    local bin = opt.luac_cross or os.getenv("RECUDO_LUAC_CROSS")
+    if bin and os.isfile(bin) then return bin end
+
+    local cachedir = path.join(os.getenv("HOME") or os.tmpdir(), ".xmake/cache/recudo/bin")
+    local out_bin = path.join(cachedir, (os.host() == "windows") and "luac_cross.exe" or "luac_cross")
+    local src_c = path.join(os.scriptdir(), "luac_cross.c")
+    if os.isfile(out_bin) and os.mtime(out_bin) >= os.mtime(src_c) then
+        return out_bin
+    end
+
+    local info = get_host_lua_info(opt.target) or raise("[recudo] Host Lua library required for luac_cross")
+    local cc = os.getenv("CC") or (import("lib.detect.find_tool", {anonymous = true})("cc") or {}).program or "gcc"
+
+    local args = {"-O2", src_c}
+    for _, inc in ipairs(table.wrap(info.includedirs)) do table.insert(args, "-I" .. inc) end
+    for _, lib in ipairs(table.wrap(info.libfiles)) do table.insert(args, lib) end
+    for _, sys in ipairs(table.wrap(info.syslinks)) do table.insert(args, "-l" .. sys) end
+    table.insert(args, "-o")
+    table.insert(args, out_bin)
+
+    os.mkdir(cachedir)
+    os.runv(cc, args)
+    return out_bin
+end
+
+function compile_bytecode(srcfile, opt)
+    local luac_cross = get_or_build_luac_cross(opt)
+    local endian, bits = resolve_profile(opt.target or opt)
+    local tmp = path.join(os.tmpdir(), string.format("recudo_bc_%s_%s_%d.tmp", os.getpid(), endian, math.random(100000, 999999)))
+    local args = {"--endian", opt.endian or endian, "--bits", tostring(opt.bits or bits)}
+    table.insert(args, (opt.strip ~= false) and "-s" or "-g")
+    table.insert(args, "-o")
+    table.insert(args, tmp)
+    table.insert(args, srcfile)
+
+    os.runv(luac_cross, args)
+    local data = io.readfile(tmp, {encoding = "binary"})
+    os.rm(tmp)
+    return data
 end
 
 function generate_bundle_source(files, opt)
     opt = opt or {}
-    local entry_module = opt.entry_module or "main"
+    local is_bytecode = (opt.mode == "bytecode") or (opt.bytecode == true)
+    local endian, bits = resolve_profile(opt.target or opt)
+    local bc_opt = table.join(opt, {endian = opt.endian or endian, bits = opt.bits or bits})
+
     local modules = {}
-
     for idx, f in ipairs(files) do
-        local content = io.readfile(f)
+        local content = is_bytecode and compile_bytecode(f, bc_opt) or io.readfile(f)
         if content then
-            local relpath = opt.file_map and opt.file_map[f]
-            if not relpath then
-                local norm = path.normalize(f):gsub("\\", "/")
-                if norm:startswith("src/") then
-                    relpath = norm:sub(5)
-                elseif norm:startswith("lua/") then
-                    relpath = norm:sub(5)
-                elseif norm:startswith("lib/") then
-                    relpath = norm:sub(5)
-                else
-                    relpath = norm
-                end
-            end
-
-            local modname = opt.module_map and opt.module_map[f]
-            if not modname then
-                modname = env.get_module_name(relpath)
-            end
-
+            local rel = opt.file_map and opt.file_map[f] or env.get_relative_path(opt.target, f)
+            local mod = opt.module_map and opt.module_map[f] or env.get_module_name(rel)
             table.insert(modules, {
                 id = idx,
-                name = modname,
-                relpath = relpath,
+                name = mod,
+                relpath = rel,
                 varname = "recudo_lua_data_" .. idx,
                 loader = "recudo_preload_" .. idx,
                 hex_bytes = bytes_to_c_hex(content)
@@ -163,24 +432,62 @@ function generate_bundle_source(files, opt)
     end
 
     local natives = {}
-    for _, native in ipairs(opt.native_modules or {}) do
-        table.insert(natives, {
-            name = c_escape(native.name),
-            symbol = native.symbol
-        })
+    for _, n in ipairs(opt.native_modules or {}) do
+        table.insert(natives, {name = c_escape(n.name), symbol = n.symbol})
     end
+
+    local raw_libs = opt.lua_libs or (opt.target and opt.target:values("recudo.lua.libs"))
+    local raw_exclude = opt.lua_libs_exclude or (opt.target and opt.target:values("recudo.lua.libs.exclude"))
+    local resolved_libs = nil
+
+    if raw_libs or raw_exclude then
+        local exclude_set = {}
+        if raw_exclude then
+            for _, ex in ipairs(table.wrap(raw_exclude)) do
+                exclude_set[ex] = true
+            end
+        end
+
+        local base_list = raw_libs and table.wrap(raw_libs) or CANONICAL_LUA_LIBS
+        resolved_libs = {}
+        for _, libname in ipairs(base_list) do
+            if not exclude_set[libname] then
+                local item = STD_LUA_LIBS[libname] or {name = libname, openf = "luaopen_" .. libname}
+                table.insert(resolved_libs, item)
+            end
+        end
+    end
+
+    local state_init = opt.state_init or (opt.target and opt.target:values("recudo.lua.state_init"))
+
+    local has_parser = opt.parser
+    if has_parser == nil and opt.target then
+        has_parser = opt.target:values("recudo.lua.parser")
+    end
+    if has_parser == nil and opt.target then
+        for _, def in ipairs(table.wrap(opt.target:get("defines"))) do
+            if def == "LUA_NO_PARSER" then
+                has_parser = false
+                break
+            end
+        end
+    end
+    local no_parser = (has_parser == false) or (opt.no_parser == true)
 
     local context = {
         modules = modules,
         native_modules = natives,
         cpath = opt.cpath and #opt.cpath > 0 and c_escape(opt.cpath) or nil,
-        entry_module = entry_module,
-        include_main = opt.include_main ~= false
+        entry_module = opt.entry_module or "main",
+        preload_function = opt.preload_function or opt.preload_name or "recudo_lua_preload_all",
+        include_main = opt.include_main ~= false,
+        state_init = state_init,
+        lua_libs = resolved_libs,
+        no_parser = no_parser
     }
 
     if opt.template_file and os.isfile(opt.template_file) then
         return template.render_file(opt.template_file, context)
-    else
-        return template.render(DEFAULT_BUNDLE_TEMPLATE, context)
     end
+    return template.render(DEFAULT_BUNDLE_TEMPLATE, context)
 end
