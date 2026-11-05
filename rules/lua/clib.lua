@@ -119,6 +119,21 @@ local function setup_clib_rule(rule_name)
             os.mkdir(target:autogendir())
             io.writefile(bridge_c, bridge_code)
             target:add("files", bridge_c)
+
+            if target:values("recudo.lua.bundle.natives") ~= false then
+                local lua_module = import("lua.module", {anonymous = true})
+                local natives = lua_module.bundle_sources(lua_module.roots_of(target)).natives
+                for _, native in ipairs(natives) do
+                    if native.link then
+                        target:add("links", native.link)
+                        if native.linkdir then
+                            target:add("linkdirs", native.linkdir)
+                        end
+                        local rt_pkg = target:pkg("luajit") and "luajit" or (target:pkg("openresty-luajit") and "openresty-luajit" or "lua")
+                        target:add("linkorders", native.link, rt_pkg)
+                    end
+                end
+            end
         end)
 
         before_buildcmd_files(function (target, batchcmds, sourcebatch, opt)
@@ -201,6 +216,8 @@ local function setup_clib_rule(rule_name)
             local endian = target:values("recudo.lua.bundle.endian")
             local bits = target:values("recudo.lua.bundle.bits")
             local strip = target:values("recudo.lua.bundle.strip")
+            local use_natives = target:values("recudo.lua.bundle.natives")
+            local natives = (use_natives ~= false) and bundled.natives or {}
 
             local bundle_code = bundler.generate_bundle_source(luafiles, {
                 projdir = os.projectdir(),
@@ -215,6 +232,7 @@ local function setup_clib_rule(rule_name)
                 endian = endian,
                 bits = bits,
                 strip = strip,
+                native_modules = natives,
                 preload_function = preload_fn
             })
 
