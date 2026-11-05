@@ -311,12 +311,12 @@ static int <%= prefix %>impl_<%= fn.name %>(
     }
 
 <% if #(fn.returns or {}) > 0 and (fn.returns[1].type == "string" or fn.returns[1].type == "bytes" or fn.returns[1].type == "buffer") then %>
-    if (lua_gettop(L) >= base + 1 && lua_isnil(L, base + 1)) {
+    if (lua_gettop(L) >= err_idx + 1 && lua_isnil(L, err_idx + 1)) {
         if (err_msg) {
             const char *estr = NULL;
             size_t elen = 0;
-            if (lua_gettop(L) >= base + 2 && lua_isstring(L, base + 2)) {
-                estr = lua_tolstring(L, base + 2, &elen);
+            if (lua_gettop(L) >= err_idx + 2 && lua_isstring(L, err_idx + 2)) {
+                estr = lua_tolstring(L, err_idx + 2, &elen);
             } else {
                 estr = "operation returned nil";
                 elen = strlen(estr);
@@ -337,7 +337,7 @@ static int <%= prefix %>impl_<%= fn.name %>(
 
     /* Extract return values */
 <% for idx, r in ipairs(fn.returns or {}) do %>
-<% local ret_pos = "base + " .. idx %>
+<% local ret_pos = "err_idx + " .. idx %>
 <% if r.type == "string" then %>
     if (out_<%= r.name %>) {
         size_t rlen = 0;
