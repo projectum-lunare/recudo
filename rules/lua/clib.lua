@@ -100,6 +100,7 @@ local function setup_clib_rule(rule_name)
                 entry_module = entry,
                 preload_function = preload_fn,
                 header_file = header_file,
+                header_extra = target:values("recudo.lua.clib.header_extra"),
                 lua_libs = lua_libs,
                 lua_libs_exclude = lua_libs_exclude,
                 exports = exports
@@ -178,6 +179,7 @@ local function setup_clib_rule(rule_name)
                 entry_module = entry_mod,
                 preload_function = preload_fn,
                 header_file = header_file,
+                header_extra = target:values("recudo.lua.clib.header_extra"),
                 lua_libs = lua_libs,
                 lua_libs_exclude = lua_libs_exclude,
                 exports = exports

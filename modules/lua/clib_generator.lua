@@ -47,6 +47,11 @@ extern "C" {
 
 struct lua_State;
 
+<% if header_extra then %>
+/* Custom User Declarations */
+<%= header_extra %>
+<% end %>
+
 /* Status / Return Codes */
 #define <%= prefix_upper %>OK        0
 #define <%= prefix_upper %>ERR      -1
@@ -598,6 +603,7 @@ local function _prepare_context(config)
         entry_module = entry_mod,
         preload_function = preload_fn,
         lua_libs = resolved_libs,
+        header_extra = config.header_extra,
         header_guard = header_guard,
         header_name = header_name,
         exports = normalized_exports
