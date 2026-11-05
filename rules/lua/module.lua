@@ -94,6 +94,14 @@ local function setup_module_rule(rule_name)
                         target:set("extension", ".so")
                         target:add("cxflags", "-fPIC")
                     end
+
+                    -- recudo.lua.module targets are C by contract: xmake's
+                    -- default shared linker is g++, whose driver spec records
+                    -- libstdc++ as NEEDED even for pure C objects. Link with
+                    -- the C driver on gcc/clang hosts instead.
+                    if target:is_plat("linux", "macosx", "bsd") then
+                        target:set("toolchains", "recudo-c")
+                    end
                 end
 
                 -- Ensure Lua headers and defines for C modules

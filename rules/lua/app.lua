@@ -137,6 +137,17 @@ local function setup_app_rule(rule_name)
             env.stage_lua_sourcefiles(target, target:sourcefiles())
         end)
 
+        on_config(function (target)
+            -- The promoted static app is C by construction: xmake's default
+            -- binary linker is g++ (its driver spec records libstdc++ as
+            -- NEEDED even for pure C objects). Link with the C driver on
+            -- gcc/clang hosts instead. Happens here because the promotion
+            -- itself runs in after_load.
+            if target:data("recudo.lua.static_app") and target:is_plat("linux", "macosx", "bsd") then
+                target:set("toolchains", "recudo-c")
+            end
+        end)
+
         after_build(function (target)
             local is_bundle = target:values("recudo.lua.bundle")
             if is_bundle or target:data("recudo.lua.static_app") then
