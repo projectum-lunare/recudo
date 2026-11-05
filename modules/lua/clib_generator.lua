@@ -47,6 +47,15 @@ extern "C" {
 
 struct lua_State;
 
+<% for _, st in ipairs(structs or {}) do %>
+<% if st.desc then %>/* <%= st.desc %> */<% end %>
+typedef struct <%= st.tag %> {
+<% for _, f in ipairs(st.fields or {}) do %>
+    <%= f.c_decl %>
+<% end %>
+} <%= st.typename %>;
+
+<% end %>
 <% if header_extra then %>
 /* Custom User Declarations */
 <%= header_extra %>
@@ -218,7 +227,7 @@ struct <%= prefix %>ctx {
 }
 
 <% for _, fn in ipairs(exports) do %>
-static int <%= prefix %>impl_<%= fn.name %>(
+static int <%= fn.impl_name %>(
     lua_State *L,
     int entry_ref<% if fn.c_params_decl and #fn.c_params_decl > 0 then %>,
     <%= fn.c_params_decl %><% end %>
@@ -251,7 +260,7 @@ static int <%= prefix %>impl_<%= fn.name %>(
 
     /* Validate required parameters */
 <% for _, p in ipairs(fn.params or {}) do %>
-<% if p.required or p.type == "bytes" or p.type == "buffer" then %>
+<% if p.required then %>
     if (!<%= p.name %>) {
         lua_settop(L, base);
         if (err_msg) {
@@ -285,6 +294,55 @@ static int <%= prefix %>impl_<%= fn.name %>(
     lua_pushnumber(L, (lua_Number)<%= p.name %>);
 <% elseif p.type == "bool" or p.type == "boolean" then %>
     lua_pushboolean(L, <%= p.name %>);
+<% elseif p.type == "struct" then %>
+    if (<%= p.name %>) {
+        lua_newtable(L);
+<% for _, f in ipairs(p.fields or {}) do %>
+<% if f.type == "string" then %>
+        if (<%= p.name %>-><%= f.name %>) {
+            lua_pushstring(L, <%= p.name %>-><%= f.name %>);
+            lua_setfield(L, -2, "<%= f.name %>");
+        }
+<% elseif f.type == "int" or f.type == "int64" then %>
+<% if f.optional then %>
+        if (<%= p.name %>-><%= f.name %> != 0) {
+            lua_pushinteger(L, (lua_Integer)<%= p.name %>-><%= f.name %>);
+            lua_setfield(L, -2, "<%= f.name %>");
+        }
+<% else %>
+        lua_pushinteger(L, (lua_Integer)<%= p.name %>-><%= f.name %>);
+        lua_setfield(L, -2, "<%= f.name %>");
+<% end %>
+<% elseif f.type == "double" or f.type == "number" then %>
+<% if f.optional then %>
+        if (<%= p.name %>-><%= f.name %> != 0.0) {
+            lua_pushnumber(L, (lua_Number)<%= p.name %>-><%= f.name %>);
+            lua_setfield(L, -2, "<%= f.name %>");
+        }
+<% else %>
+        lua_pushnumber(L, (lua_Number)<%= p.name %>-><%= f.name %>);
+        lua_setfield(L, -2, "<%= f.name %>");
+<% end %>
+<% elseif f.type == "bool" or f.type == "boolean" then %>
+<% if f.optional then %>
+        if (<%= p.name %>-><%= f.name %> != 0) {
+            lua_pushboolean(L, <%= p.name %>-><%= f.name %> > 0);
+            lua_setfield(L, -2, "<%= f.name %>");
+        }
+<% else %>
+        lua_pushboolean(L, <%= p.name %>-><%= f.name %> > 0);
+        lua_setfield(L, -2, "<%= f.name %>");
+<% end %>
+<% elseif f.type == "bytes" or f.type == "buffer" then %>
+        if (<%= p.name %>-><%= f.name %>) {
+            lua_pushlstring(L, (const char *)<%= p.name %>-><%= f.name %>, <%= p.name %>-><%= f.name %>_len);
+            lua_setfield(L, -2, "<%= f.name %>");
+        }
+<% end %>
+<% end %>
+    } else {
+        lua_pushnil(L);
+    }
 <% end %>
 <% end %>
 
@@ -412,7 +470,7 @@ static int <%= prefix %>impl_<%= fn.name %>(
         }
         return <%= prefix_upper %>ERR_ARG;
     }
-    return <%= prefix %>impl_<%= fn.name %>(
+    return <%= fn.impl_name %>(
         ctx->L,
         ctx->entry_ref<% if fn.c_args_pass and #fn.c_args_pass > 0 then %>,
         <%= fn.c_args_pass %><% end %>
@@ -458,7 +516,7 @@ static int <%= prefix %>impl_<%= fn.name %>(
     }
     int entry_ref = luaL_ref(L, LUA_REGISTRYINDEX);
 
-    ret = <%= prefix %>impl_<%= fn.name %>(
+    ret = <%= fn.impl_name %>(
         L,
         entry_ref<% if fn.c_args_pass and #fn.c_args_pass > 0 then %>,
         <%= fn.c_args_pass %><% end %>
@@ -521,6 +579,55 @@ local function _prepare_context(config)
         end
     end
 
+    local structs_map = {}
+    local structs_list = {}
+    for _, fn in ipairs(config.exports or {}) do
+        for _, p in ipairs(fn.params or {}) do
+            if p.type == "struct" then
+                local typename = p.typename or (prefix .. p.name .. "_t")
+                if not structs_map[typename] then
+                    local fields = {}
+                    for _, f in ipairs(p.fields or {}) do
+                        local fdecl = ""
+                        if f.type == "string" then
+                            fdecl = "const char *" .. f.name
+                        elseif f.type == "int" then
+                            fdecl = "int " .. f.name
+                        elseif f.type == "int64" then
+                            fdecl = "int64_t " .. f.name
+                        elseif f.type == "double" or f.type == "number" then
+                            fdecl = "double " .. f.name
+                        elseif f.type == "bool" or f.type == "boolean" then
+                            fdecl = "int " .. f.name
+                        elseif f.type == "bytes" or f.type == "buffer" then
+                            fdecl = "const void *" .. f.name .. ";\n    size_t " .. f.name .. "_len"
+                        end
+                        if f.desc then
+                            fdecl = fdecl .. ";  /* " .. f.desc .. " */"
+                        else
+                            fdecl = fdecl .. ";"
+                        end
+                        table.insert(fields, {
+                            name = f.name,
+                            type = f.type,
+                            optional = f.optional,
+                            c_decl = fdecl
+                        })
+                    end
+                    local tag = p.tag or typename:gsub("_t$", "")
+                    local st_entry = {
+                        typename = typename,
+                        tag = tag,
+                        desc = p.desc,
+                        fields = fields
+                    }
+                    structs_map[typename] = st_entry
+                    table.insert(structs_list, st_entry)
+                end
+            end
+        end
+    end
+
     local normalized_exports = {}
     for _, fn in ipairs(config.exports or {}) do
         local c_name = fn.c_name or (prefix .. fn.name)
@@ -558,6 +665,10 @@ local function _prepare_context(config)
             elseif p.type == "bool" or p.type == "boolean" then
                 table.insert(c_params, "int " .. p.name)
                 table.insert(c_args, p.name)
+            elseif p.type == "struct" then
+                local typename = p.typename or (prefix .. p.name .. "_t")
+                table.insert(c_params, "const " .. typename .. " *" .. p.name)
+                table.insert(c_args, p.name)
             end
         end
 
@@ -591,10 +702,17 @@ local function _prepare_context(config)
         table.insert(c_params, "char **err_msg")
         table.insert(c_args, "err_msg")
 
+        local impl_name = fn.impl_name
+        if not impl_name then
+            local clean_name = (stateless_c_name or c_name or fn.name):gsub("^" .. prefix, "")
+            impl_name = prefix .. "impl_" .. clean_name
+        end
+
         table.insert(normalized_exports, {
             name = fn.name,
             c_name = c_name,
             stateless_c_name = stateless_c_name,
+            impl_name = impl_name,
             desc = fn.desc,
             params = fn.params or {},
             returns = fn.returns or {},
@@ -614,6 +732,7 @@ local function _prepare_context(config)
         header_extra = config.header_extra,
         header_guard = header_guard,
         header_name = header_name,
+        structs = structs_list,
         exports = normalized_exports
     }
 end
