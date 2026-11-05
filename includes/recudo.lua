@@ -25,13 +25,16 @@ add_moduledirs(path.join(rootdir, "repository/tools/modules"))
 -- One link mode for the whole graph. `xmake f --kind=shared` builds shared
 -- libraries. `xmake f --kind=static` (the default) builds archives. Platforms
 -- that cannot dlopen stay static even when the project asks for shared.
+-- The wildcard is a DEFAULT, not an override: packages explicitly configured
+-- by the consumer (e.g. add_requires("lua", {configs = {shared = true}}))
+-- keep their own settings, so the addon never stomps explicit intent.
 local link_plat = get_config("plat") or os.host()
 local link_kind = get_config("kind") or "static"
 local link_shared = link_kind == "shared"
 if plat_is_static(link_plat) then
     link_shared = false
 end
-add_requireconfs("**", {override = true, configs = {shared = link_shared}})
+add_requireconfs("**", {configs = {shared = link_shared}})
 
 -- 4. Register native rules, toolchains and CLI plugins
 includes(path.join(rootdir, "rules/**/xmake.lua"))
