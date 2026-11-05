@@ -125,7 +125,56 @@ target("my_standalone_app")
     -- set_values("recudo.lua.template", "src/custom_main.c.in")
 ```
 
-### 5. Environment & IDE Integration (`xmake recudo env`)
+### 5. Lua to Native C Library (`recudo.lua.clib`)
+Transforms any collection of Lua source files into a standard, native C static (`.a` / `.lib`) or shared (`.so` / `.dll` / `.dylib`) library with a clean C ABI and auto-generated ANSI C89/C90 public header. This allows Lua libraries to be embedded directly into C, C++, Rust, Zig, Go, C#, Python, or any host that speaks C FFI, with zero Lua knowledge required by the caller:
+
+```lua
+target("adder")
+    set_kind("static")               -- or "shared"
+    add_rules("recudo.lua.clib")
+    add_files("src/adder.lua")
+    add_packages("lua")
+    set_values("recudo.lua.clib.prefix", "adder_")
+    set_values("recudo.lua.clib.header", "adder.h")
+    set_values("recudo.lua.clib.entry", "adder")
+    set_values("recudo.lua.clib.exports", {
+        {
+            name = "add",
+            params = { { name = "a", type = "int" }, { name = "b", type = "int" } },
+            returns = { { name = "sum", type = "int" } }
+        },
+        {
+            name = "greet",
+            params = { { name = "name", type = "string" } },
+            returns = { { name = "msg", type = "string" } }
+        }
+    })
+```
+
+From C:
+```c
+#include "adder.h"
+
+int main(void) {
+    adder_ctx_t *ctx = adder_create();
+    int sum = 0;
+    char *err = NULL;
+
+    if (adder_add(ctx, 40, 2, &sum, &err) == ADDER_OK) {
+        printf("Result: %d\n", sum);
+    }
+
+    adder_destroy(ctx);
+    return 0;
+}
+```
+
+- **Thread-safe & Re-entrant**: Independent `create` / `destroy` context instances encapsulate their own private Lua states.
+- **Typed C ABI**: Automatic marshalling for `int`, `int64`, `double`, `string`, `bytes`, `bool`, and `pointer`.
+- **Memory safety**: Strings and byte buffers returned by Lua are allocated via standard `malloc` and cleaned up with `<prefix>free()`.
+- **ANSI C89/C90 Compatible**: The generated headers and bridge compile cleanly on vintage toolchains (Watcom, eVC 3.0) and modern systems alike.
+
+### 6. Environment & IDE Integration (`xmake recudo env`)
 Export project-local `LUA_PATH` and `LUA_CPATH` without global pollution:
 ```bash
 # Set environment in current shell session (like luarocks path)
@@ -135,7 +184,7 @@ eval $(xmake recudo env)
 xmake recudo env --export-env
 ```
 
-### 6. Lua modules as xmake packages
+### 7. Lua modules as xmake packages
 
 Recudo treats a Lua module as an xmake package. There is no rockspec. Including Recudo registers the local repository `recudo-lua`. A recipe in `repository/packages` is an ordinary xmake project: metadata, then a `target` with `recudo.lua.module`. `require` finds it through `LUA_PATH` and `LUA_CPATH`.
 
