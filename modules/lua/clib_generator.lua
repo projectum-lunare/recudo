@@ -288,7 +288,7 @@ static int <%= prefix %>impl_<%= fn.name %>(
 <% end %>
 <% end %>
 
-    status = lua_pcall(L, <%= #(fn.params or {}) %>, <%= #(fn.returns or {}) %>, err_idx);
+    status = lua_pcall(L, <%= #(fn.params or {}) %>, LUA_MULTRET, err_idx);
     if (status != LUA_OK) {
         if (err_msg) {
             const char *str = lua_tostring(L, -1);
@@ -311,15 +311,23 @@ static int <%= prefix %>impl_<%= fn.name %>(
     }
 
 <% if #(fn.returns or {}) > 0 and (fn.returns[1].type == "string" or fn.returns[1].type == "bytes" or fn.returns[1].type == "buffer") then %>
-    if (lua_isnil(L, -<%= #(fn.returns or {}) %>)) {
-        if (err_msg && lua_isstring(L, -1)) {
+    if (lua_gettop(L) >= base + 1 && lua_isnil(L, base + 1)) {
+        if (err_msg) {
+            const char *estr = NULL;
             size_t elen = 0;
-            const char *estr = lua_tolstring(L, -1, &elen);
-            char *ebuf = (char *)malloc(elen + 1);
-            if (ebuf) {
-                if (estr) memcpy(ebuf, estr, elen);
-                ebuf[elen] = '\0';
-                *err_msg = ebuf;
+            if (lua_gettop(L) >= base + 2 && lua_isstring(L, base + 2)) {
+                estr = lua_tolstring(L, base + 2, &elen);
+            } else {
+                estr = "operation returned nil";
+                elen = strlen(estr);
+            }
+            if (estr) {
+                char *ebuf = (char *)malloc(elen + 1);
+                if (ebuf) {
+                    memcpy(ebuf, estr, elen);
+                    ebuf[elen] = '\0';
+                    *err_msg = ebuf;
+                }
             }
         }
         lua_settop(L, base);
@@ -329,7 +337,7 @@ static int <%= prefix %>impl_<%= fn.name %>(
 
     /* Extract return values */
 <% for idx, r in ipairs(fn.returns or {}) do %>
-<% local ret_pos = -(#(fn.returns or {}) - idx + 1) %>
+<% local ret_pos = "base + " .. idx %>
 <% if r.type == "string" then %>
     if (out_<%= r.name %>) {
         size_t rlen = 0;
